@@ -25,7 +25,7 @@
 #include "macros.h"
 
 //Enable OpenGL drawing.  
-bool drawModeEnabled = true;
+bool drawModeEnabled = false;
 
 bool P3F_scene = true; //choose between P3F scene or a built-in random scene
 
@@ -588,6 +588,9 @@ Color rayTracing(Ray ray, int depth, float ior_1)  {
 	return color;
 }
 
+float random(float min, float max) {
+	return min + rand_float() * (max - min);
+}
 
 // Render function by primary ray casting from the eye towards the scene's objects
 
@@ -596,6 +599,16 @@ void renderScene()
 	int index_pos = 0;
 	int index_col = 0;
 	unsigned int counter = 0;
+	bool antiAliasing = true;
+	Vector pixel;
+
+	set_rand_seed(time(NULL) * time(NULL));
+	float n = scene->GetSamplesPerPixel();
+
+	if (n < 2) { // No anti-aliasing
+		antiAliasing = false;
+	}
+
 
 	if (drawModeEnabled) {
 		glClear(GL_COLOR_BUFFER_BIT);
@@ -608,18 +621,36 @@ void renderScene()
 		{
 			Color color;
 
-			Vector pixel;  //viewport coordinates
-			pixel.x = x + 0.5f;
-			pixel.y = y + 0.5f;
+			if (!antiAliasing) {
 
-			// YOUR 2 FUNTIONS:
-			Ray ray = scene->GetCamera()->PrimaryRay(pixel);   //function from camera.h
+				pixel.x = x + 0.5f;
+				pixel.y = y + 0.5f;
 
-			color = rayTracing(ray, 1, 1.0).clamp();
-			
+				Ray ray = scene->GetCamera()->PrimaryRay(pixel);   //function from camera.h
+
+				color = rayTracing(ray, 1, 1.0).clamp();
+
+			}
+			else { // with anti-aliasing
+
+				for (int p = 0; p < n; p++) {
+					for (int q = 0; q < n; q++) {
+
+						Vector sample = Vector(x + ((p + rand_float()) / n), y + ((q + rand_float()) / n), 0.0f);
+
+						Ray ray = scene->GetCamera()->PrimaryRay(sample);
+						color += rayTracing(ray, 1, 1.0);
+
+					}
+				}
+				color = color * (1 / pow(n, 2));
+			}
+
+
+
 
 			//color = scene->GetBackgroundColor(); //TO CHANGE - just for the template
-		
+
 			img_Data[counter++] = u8fromfloat((float)color.r());
 			img_Data[counter++] = u8fromfloat((float)color.g());
 			img_Data[counter++] = u8fromfloat((float)color.b());
