@@ -1,7 +1,7 @@
  ///////////////////////////////////////////////////////////////////////
 //
 // P3D Course
-// (c) 2021 by João Madeiras Pereira
+// (c) 2021 by JoÃ£o Madeiras Pereira
 //Ray Tracing P3F scenes and drawing points with Modern OpenGL
 //
 ///////////////////////////////////////////////////////////////////////
@@ -184,8 +184,8 @@ void createBufferObjects()
 	glGenBuffers(2, VboId);
 	glBindBuffer(GL_ARRAY_BUFFER, VboId[0]);
 
-	/* Só se faz a alocação dos arrays glBufferData (NULL), e o envio dos pontos para a placa gráfica
-	é feito na drawPoints com GlBufferSubData em tempo de execução pois os arrays são GL_DYNAMIC_DRAW */
+	/* SÃ³ se faz a alocaÃ§Ã£o dos arrays glBufferData (NULL), e o envio dos pontos para a placa grÃ¡fica
+	Ã© feito na drawPoints com GlBufferSubData em tempo de execuÃ§Ã£o pois os arrays sÃ£o GL_DYNAMIC_DRAW */
 	glBufferData(GL_ARRAY_BUFFER, size_vertices, NULL, GL_DYNAMIC_DRAW);
 	glEnableVertexAttribArray(VERTEX_COORD_ATTRIB);
 	glVertexAttribPointer(VERTEX_COORD_ATTRIB, 2, GL_FLOAT, 0, 0, 0);
@@ -453,6 +453,14 @@ void setupGLUT(int argc, char* argv[])
 
 /////////////////////////////////////////////////////YOUR CODE HERE///////////////////////////////////////////////////////////////////////////////////////
 
+Vector rand_in_unit_sphere() {
+
+	float x = (float)rand() / RAND_MAX;
+	float y = (float)rand() / RAND_MAX;
+	float z = (float)rand() / RAND_MAX;
+	return Vector(x, y, z);
+}
+
 
 Color getRefraction(Vector hitPoint, Vector normalVec, Vector tangentVec, float sin, float cos, Material* material, int depth, float ior_1, float Kr) {
 
@@ -468,7 +476,10 @@ Color getRefraction(Vector hitPoint, Vector normalVec, Vector tangentVec, float 
 }
 
 Color getReflection(Vector normalVec, float cos, Vector revRayDir, Vector hitPoint, Material* material, int depth, float ior_1) {
-	Vector reflRayDir = normalVec * cos * 2 - revRayDir;
+	
+	// 0.25 is roughness
+	Vector reflRayDir = normalVec * cos * 2 - revRayDir + rand_in_unit_sphere() * 0.3;
+	reflRayDir.normalize();
 	float reflection = material->GetReflection();
 	Color color;
 
@@ -490,27 +501,28 @@ Color getReflection(Vector normalVec, float cos, Vector revRayDir, Vector hitPoi
 }
 
 Color getDiffuse(Ray shadowRay, Material* material, Vector hitRayDir, Vector normalVec, Vector lightDir, Color lightColour) {
-	Color color;
+	
+	Color color = Color();
 	bool shadow = false;
 	float hitDist;
 	
-	if (Accel_Struct == GRID_ACC) {
-		shadow = grid_ptr->Traverse(shadowRay);
-	}
+	//if (Accel_Struct == GRID_ACC) {
+	//	shadow = grid_ptr->Traverse(shadowRay);
+	//}
 
-	else {
-		for (int j = 0; j < scene->getNumObjects(); j++) {
-			if (scene->getObject(j)->intercepts(shadowRay, hitDist)) {
-				shadow = true;
-				break;
-			}
+	
+	for (int j = 0; j < scene->getNumObjects(); j++) {
+		if (scene->getObject(j)->intercepts(shadowRay, hitDist)) {
+			shadow = true;
+			break;
 		}
 	}
+	
 
 	if (shadow)
 		return color;
-
-	float normalDotProd = lightDir * normalVec;
+	// n sei se para as soft shadows basta multiplicar isto por lightDir + normalVec
+	float normalDotProd = lightDir * normalVec /* * (lightDir * normalVec)*/;
 
 	Color diffuse_colour;
 	if (normalDotProd > 0) {
