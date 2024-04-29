@@ -11,14 +11,21 @@ Triangle::Triangle(Vector& P0, Vector& P1, Vector& P2)
 {
 	points[0] = P0; points[1] = P1; points[2] = P2;
 
-	/* Calculate the normal */
-	normal = Vector(0, 0, 0);
+	// normal
+	normal = (P1 - P0) % (P2 - P0);
 	normal.normalize();
 
-	//YOUR CODE to Calculate the Min and Max for bounding box
-	Min = Vector(+FLT_MAX, +FLT_MAX, +FLT_MAX);
-	Max = Vector(-FLT_MAX, -FLT_MAX, -FLT_MAX);
+	// bounding box
+	float xMin = std::min(P0.x, std::min(P1.x, P2.x));
+	float yMin = std::min(P0.y, std::min(P1.y, P2.y));
+	float zMin = std::min(P0.z, std::min(P1.z, P2.z));
 
+	float xMax = std::max(P0.x, std::max(P1.x, P2.x));
+	float yMax = std::max(P0.y, std::max(P1.y, P2.y));
+	float zMax = std::max(P0.z, std::max(P1.z, P2.z));
+
+	Min = Vector(xMin, yMin, zMin);
+	Max = Vector(xMax, yMax, zMax);
 
 	// enlarge the bounding box a bit just in case...
 	Min -= EPSILON;
@@ -41,10 +48,6 @@ Vector Triangle::getNormal(Vector point)
 bool Triangle::intercepts(Ray& r, float& t ) {
 
 	r.direction.normalize();
-
-	//reference: scratch a pixel
-	//any point works
-	//TODO: CAN THIS BE DONE LIKE THIS?
 
 	float vd = r.direction * normal;
 
@@ -175,9 +178,17 @@ Vector Sphere::getNormal( Vector point )
 
 AABB Sphere::GetBoundingBox() {
 	Vector a_min;
-	Vector a_max ;
+	Vector a_max;
 
 	//PUT HERE YOUR CODE
+	a_min.x = center.x - radius;
+	a_min.y = center.y - radius;
+	a_min.z = center.z - radius;
+
+	a_max.x = center.x - radius;
+	a_max.y = center.y - radius;
+	a_max.z = center.z - radius;
+
 	return(AABB(a_min, a_max));
 }
 
