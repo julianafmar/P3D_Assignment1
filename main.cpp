@@ -461,23 +461,36 @@ Vector rand_in_unit_sphere() {
 	return Vector(x, y, z);
 }
 
+// Se encontrarmos algo para substituir isto, mudar na função getRefraction
+/*float getVectorNorm(Vector vector) {
+	return sqrt(vector.x**2 + vector.y**2 + vector.z**2);
+}*/
 
-Color getRefraction(Vector hitPoint, Vector normalVec, Vector tangentVec, float sin, float cos, Material* material, int depth, float ior_1, float Kr) {
 
+/*Color getRefraction(Vector hitPoint, Vector normalVec, Vector tangentVec, float sin, float cos, Material* material, int depth, float ior_1) {
 	// Calculates starting point of rt
 	Vector refrHitPoint = hitPoint - normalVec * EPSILON;
 
 	// Calculates the direction of rt
 	Vector refrRayDir = tangentVec * sin - normalVec * cos;
-
 	Ray rt(refrHitPoint, refrRayDir);
+
+	float n1 = material->GetRefrIndex();
+	float n2;
+	if (n1 == 0) n2 = 1;
+	else n2 = 0;
+
+	// Ver a normal, ela pode ser a errada 
+
+	float incident_angle = (cos((hitPoint*normalVec)/(getVectorNorm(normalVec)*getVectorNorm(hitPoint))))
+	float R1 = (n2 * cos)/()
 	Color refrColor = rayTracing(rt, depth + 1, ior_1);
-	return refrColor * (1 - Kr); // perguntar
-}
+	return refrColor * (1 - Kr); 
+}*/
 
 Color getReflection(Vector normalVec, float cos, Vector revRayDir, Vector hitPoint, Material* material, int depth, float ior_1) {
 	
-	// 0.25 is roughness
+	// 0.3 is roughness
 	Vector reflRayDir = normalVec * cos * 2 - revRayDir + rand_in_unit_sphere() * 0.3;
 	reflRayDir.normalize();
 	float reflection = material->GetReflection();
@@ -521,6 +534,7 @@ Color getDiffuse(Ray shadowRay, Material* material, Vector hitRayDir, Vector nor
 
 	if (shadow)
 		return color;
+
 	// n sei se para as soft shadows basta multiplicar isto por lightDir + normalVec
 	float normalDotProd = lightDir * normalVec /* * (lightDir * normalVec)*/;
 
@@ -597,6 +611,8 @@ Color rayTracing(Ray ray, int depth, float ior_1)  {
 		return color + getReflection(normalVec, cos, revRayDir, reflectPoint, closestObj->GetMaterial(), depth, ior_1);
 	}
 	
+	//if (closestObj->GetMaterial()->GetTransmittance() == 1)
+	//	return color + getRefraction();
 	return color;
 }
 
