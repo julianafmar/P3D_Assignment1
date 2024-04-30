@@ -27,7 +27,7 @@
 //Enable OpenGL drawing.  
 bool drawModeEnabled = false;
 
-bool P3F_scene = true; //choose between P3F scene or a built-in random scene
+bool P3F_scene = false; //choose between P3F scene or a built-in random scene
 
 #define MAX_DEPTH 4  //number of bounces
 
@@ -467,26 +467,19 @@ Vector rand_in_unit_sphere() {
 }*/
 
 
-/*Color getRefraction(Vector hitPoint, Vector normalVec, Vector tangentVec, float sin, float cos, Material* material, int depth, float ior_1) {
+Color getRefraction(Vector hitPoint, Vector normalVec, Vector tangentVec, float sin2, float cos2, Material* material, int depth, float ior_2, float kr) {
 	// Calculates starting point of rt
 	Vector refrHitPoint = hitPoint - normalVec * EPSILON;
 
 	// Calculates the direction of rt
-	Vector refrRayDir = tangentVec * sin - normalVec * cos;
-	Ray rt(refrHitPoint, refrRayDir);
+	Vector refrRayDir = tangentVec * sin2 - normalVec * cos2;
+	Ray rt(refrHitPoint, refrRayDir); // the refrated ray 
 
-	float n1 = material->GetRefrIndex();
-	float n2;
-	if (n1 == 0) n2 = 1;
-	else n2 = 0;
 
 	// Ver a normal, ela pode ser a errada 
-
-	float incident_angle = (cos((hitPoint*normalVec)/(getVectorNorm(normalVec)*getVectorNorm(hitPoint))))
-	float R1 = (n2 * cos)/()
-	Color refrColor = rayTracing(rt, depth + 1, ior_1);
-	return refrColor * (1 - Kr); 
-}*/
+	Color refrColor = rayTracing(rt, depth + 1, ior_2);
+	return refrColor /* (1 - kr)*/; // algo de errado aqui
+}
 
 Color getReflection(Vector normalVec, float cos, Vector revRayDir, Vector hitPoint, Material* material, int depth, float ior_1) {
 	
@@ -548,7 +541,7 @@ Color getDiffuse(Ray shadowRay, Material* material, Vector hitRayDir, Vector nor
 
 	Color specularColor;
 	if (halfwayProduct > 0) {
-		specularColor = material->GetSpecColor() * material->GetSpecular() * pow(halfwayProduct, material->GetShine()) * 0.5;
+		specularColor = material->GetSpecColor() * material->GetSpecular() * pow(halfwayProduct, material->GetShine());
 	}
 
 	return color += lightColour * (diffuse_colour + specularColor);
@@ -562,7 +555,6 @@ Color rayTracing(Ray ray, int depth, float ior_1)  {
 
 	Object* closestObj = nullptr;
 	Vector hitPoint;
-	bool skyboxFlg = scene->GetSkyBoxFlg();
 	bool hit = false;
 
 	int objects = scene->getNumObjects();
@@ -584,7 +576,11 @@ Color rayTracing(Ray ray, int depth, float ior_1)  {
 
 	Vector revRayDir = ray.direction * (-1);
 	Vector normalVec = closestObj->getNormal(hitPoint);
+
+	revRayDir* normalVec > 0 ? normalVec : normalVec * (-1);
+
 	Vector reflectPoint = hitPoint + normalVec * EPSILON;
+	Material* material = closestObj->GetMaterial();
 
 	int ligths = scene->getNumLights();
 	for (int i = 0; i < ligths; i++) {
@@ -599,21 +595,50 @@ Color rayTracing(Ray ray, int depth, float ior_1)  {
 		}
 
 		Ray shadowRay(reflectPoint, lightDir);
-		color += getDiffuse(shadowRay, closestObj->GetMaterial(), revRayDir, normalVec, lightDir, light->color * 0.8);
+		color += getDiffuse(shadowRay, material, revRayDir, normalVec, lightDir, light->color * 0.8);
 	}
 
-	if (depth >= MAX_DEPTH || (closestObj->GetMaterial()->GetTransmittance() == 0 && closestObj->GetMaterial()->GetReflection() == 0))
+	if (depth >= MAX_DEPTH || (material->GetTransmittance() == 0 && material->GetReflection() == 0))
 		return color;
 	
 	// Reflection
-	float cos = normalVec * revRayDir;
-	if (closestObj->GetMaterial()->GetTransmittance() == 0) {
-		return color + getReflection(normalVec, cos, revRayDir, reflectPoint, closestObj->GetMaterial(), depth, ior_1);
+	float cos1 = normalVec * revRayDir;
+	if (material->GetTransmittance() == 0) {
+		return color + getReflection(normalVec, cos1, revRayDir, reflectPoint, material, depth, ior_1);
 	}
 	
-	//if (closestObj->GetMaterial()->GetTransmittance() == 1)
-	//	return color + getRefraction();
-	return color;
+	// Dialectric
+	Vector tangentVec = normalVec * cos1 - revRayDir;
+	float sin1 = tangentVec.length();
+	tangentVec.normalize();
+
+	float ior_2 = material->GetRefrIndex();
+
+
+	float sin2 = (sin1 * ior_1) / ior_2; // Snell Law
+
+	// there can be a total reflection if sin2 > 1
+	//Total Reflection
+	//if (sin2 > 1)
+	//	return color + getReflection(normalVec, cos1, revRayDir, reflectPoint, material, depth, ior_1);
+
+	float cos2 = sqrt(1 - pow(sin2, 2));
+
+	float r0 = pow((ior_1 - ior_2) / (ior_1 + ior_2), 2);
+	float cosKR = ior_1 > ior_2 ? cos2 : cos1;
+	float kr = r0 + (1 - r0) * pow(1 - cosKR, 5);
+
+
+	if (material->GetReflection() > 0) {
+		Vector reflRayDir = normalVec * cos1 * 2 - revRayDir;
+		Ray reflectedRay(reflectPoint, reflRayDir);
+
+		Color reflectedColor = rayTracing(reflectedRay, depth + 1, ior_1);
+		color += material->GetSpecColor() * reflectedColor * kr;
+
+	}
+
+	return color + getRefraction(hitPoint, normalVec, tangentVec, sin2, cos2, material, depth, ior_2, kr);
 }
 
 float random(float min, float max) {
