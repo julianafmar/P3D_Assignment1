@@ -577,10 +577,21 @@ Color rayTracing(Ray ray, int depth, float ior_1)  {
 	Vector revRayDir = ray.direction * (-1);
 	Vector normalVec = closestObj->getNormal(hitPoint);
 
-	revRayDir* normalVec > 0 ? normalVec : normalVec * (-1);
+	//revRayDir* normalVec > 0 ? normalVec : normalVec * (-1);
+
+	Material* material = closestObj->GetMaterial();
+	float ior_2 = material->GetRefrIndex();
+
+	if (revRayDir * normalVec > 0) {
+		normalVec = normalVec;
+		ior_2 = 1;
+	}
+	else {
+		normalVec = normalVec * (-1);
+		ior_1 = 1;
+	}
 
 	Vector reflectPoint = hitPoint + normalVec * EPSILON;
-	Material* material = closestObj->GetMaterial();
 
 	int ligths = scene->getNumLights();
 	for (int i = 0; i < ligths; i++) {
@@ -612,8 +623,10 @@ Color rayTracing(Ray ray, int depth, float ior_1)  {
 	float sin1 = tangentVec.length();
 	tangentVec.normalize();
 
-	float ior_2 = material->GetRefrIndex();
-
+	if (ior_1 > 1) {
+		printf("ior1 = %f\n", ior_1);
+		printf("ior2 = %f\n", ior_2);
+	}
 
 	float sin2 = (sin1 * ior_1) / ior_2; // Snell Law
 
