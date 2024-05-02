@@ -715,20 +715,19 @@ void renderScene()
 				for (int p = 0; p < dofValue; p++) {
 					for (int q = 0; q < dofValue; q++) {
 
-						lensSample = rand_in_unit_circle() * aperture;
+						lensSample = rand_in_unit_circle() * aperture / 2;
 
-						Vector sample;
 						if (sqrt(n) != 0) {
-							sample.x = x + random(p, p + 1) / sqrt(n);
-							sample.y = y + random(q, q + 1) / sqrt(n);
+							pixel.x = x + random(p, p + 1) / sqrt(n);
+							pixel.y = y + random(q, q + 1) / sqrt(n);
 						}
 
-						Ray ray = scene->GetCamera()->PrimaryRay(sample);
+						Ray ray = scene->GetCamera()->PrimaryRay(lensSample, pixel);
 						color += rayTracing(ray, 1, 1.0);
 
 					}
 				}
-				color = color * (1 / pow(n, 2));
+				color = color * (1 / pow(dofValue, 2));
 
 
 			}
