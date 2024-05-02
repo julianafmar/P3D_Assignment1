@@ -88,7 +88,21 @@ public:
 	{
 		
 		Vector ray_dir;
-		Vector eye_offset;
+		Vector eye_offset = eye + u * lens_sample.x + v * lens_sample.y;
+		
+		Vector aux;
+
+		Vector focal_plane_sample = aux * focal_ratio;
+
+		aux.x = w * (pixel_sample.x / res_x - 0.5);
+		aux.y = h * (pixel_sample.y / res_y - 0.5);
+		aux.z = -plane_dist;
+
+
+		ray_dir =
+			(u * (focal_plane_sample.x - lens_sample.x) +
+				v * (focal_plane_sample.y - lens_sample.y) +
+				n * focal_plane_sample.z).normalize();
 
 		return Ray(eye_offset, ray_dir);
 	}
