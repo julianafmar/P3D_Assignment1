@@ -484,7 +484,7 @@ Color getRefraction(Vector hitPoint, Vector normalVec, Vector tangentVec, float 
 Color getReflection(Vector normalVec, float cos, Vector revRayDir, Vector hitPoint, Material* material, int depth, float ior_1) {
 	
 	// 0.3 is roughness
-	Vector reflRayDir = normalVec * cos * 2 - revRayDir + rand_in_unit_sphere() * 0.3;
+	Vector reflRayDir = normalVec * cos * 2 - revRayDir + rand_in_unit_sphere() * 0.3 ;
 	reflRayDir.normalize();
 	float reflection = material->GetReflection();
 	Color color;
@@ -584,11 +584,11 @@ Color rayTracing(Ray ray, int depth, float ior_1)  {
 
 	if (revRayDir * normalVec > 0) {
 		normalVec = normalVec;
-		ior_2 = 1;
+		ior_1 = 1;
 	}
 	else {
 		normalVec = normalVec * (-1);
-		ior_1 = 1;
+		ior_2 = 1;
 	}
 
 	Vector reflectPoint = hitPoint + normalVec * EPSILON;
@@ -606,7 +606,7 @@ Color rayTracing(Ray ray, int depth, float ior_1)  {
 		}
 
 		Ray shadowRay(reflectPoint, lightDir);
-		color += getDiffuse(shadowRay, material, revRayDir, normalVec, lightDir, light->color * 0.8);
+		color += getDiffuse(shadowRay, material, revRayDir, normalVec, lightDir, light->color*0.8);
 	}
 
 	if (depth >= MAX_DEPTH || (material->GetTransmittance() == 0 && material->GetReflection() == 0))
@@ -623,10 +623,6 @@ Color rayTracing(Ray ray, int depth, float ior_1)  {
 	float sin1 = tangentVec.length();
 	tangentVec.normalize();
 
-	if (ior_1 > 1) {
-		printf("ior1 = %f\n", ior_1);
-		printf("ior2 = %f\n", ior_2);
-	}
 
 	float sin2 = (sin1 * ior_1) / ior_2; // Snell Law
 
