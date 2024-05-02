@@ -655,14 +655,14 @@ float random(float min, float max) {
 }
 
 Vector rand_in_unit_circle() {
-	float angle = 2 * PI * rand_float();
-	float radius = sqrt(rand_float()); 
-	float x = radius * cos(angle);
-	float y = radius * sin(angle);
-	Vector vec = Vector(x, y, 0);
-	return vec;
-}
 
+	float theta = rand_float() * 2.0 * PI;
+	float r = rand_float();
+	float x = r * cos(theta);
+	float y = r * sin(theta);
+
+	return Vector(x, y, 0);
+}
 // Render function by primary ray casting from the eye towards the scene's objects
 
 void renderScene()
@@ -675,9 +675,9 @@ void renderScene()
 	float aperture = scene->GetCamera()->GetAperture();
 
 	set_rand_seed(time(NULL) * time(NULL));
-	float n = scene->GetSamplesPerPixel();
+	float sqrtN = sqrt(scene->GetSamplesPerPixel());
 
-	if (n < 2) { // No anti-aliasing
+	if (sqrtN < 2) { // No anti-aliasing
 		antiAliasing = false;
 	}
 
@@ -699,7 +699,7 @@ void renderScene()
 			
 			if (dof) { // has dof
 				
-				int dofValue = 0;
+				int dofValue;
 
 				if (!antiAliasing) {
 					dofValue = 2;
@@ -709,17 +709,17 @@ void renderScene()
 
 				}
 				else {
-					dofValue = scene->GetSamplesPerPixel();
+					dofValue = sqrtN;
 				}
 
 				for (int p = 0; p < dofValue; p++) {
 					for (int q = 0; q < dofValue; q++) {
 
-						lensSample = rand_in_unit_circle() * aperture / 2;
+						lensSample = rand_in_unit_circle() * aperture;
 
-						if (sqrt(n) != 0) {
-							pixel.x = x + random(p, p + 1) / sqrt(n);
-							pixel.y = y + random(q, q + 1) / sqrt(n);
+						if (sqrtN != 0) {
+							pixel.x = x + random(p, p + 1) / dofValue;
+							pixel.y = y + random(p, p + 1) / dofValue;
 						}
 
 						Ray ray = scene->GetCamera()->PrimaryRay(lensSample, pixel);
@@ -745,17 +745,17 @@ void renderScene()
 				}
 				else { // with anti-aliasing
 
-					for (int p = 0; p < n; p++) {
-						for (int q = 0; q < n; q++) {
+					for (int p = 0; p < sqrtN; p++) {
+						for (int q = 0; q < sqrtN; q++) {
 
-							Vector sample = Vector(x + ((p + rand_float()) / n), y + ((q + rand_float()) / n), 0.0f);
+							Vector sample = Vector(x + ((p + rand_float()) / sqrtN), y + ((q + rand_float()) / sqrtN), 0.0f);
 
 							Ray ray = scene->GetCamera()->PrimaryRay(sample);
 							color += rayTracing(ray, 1, 1.0);
 
 						}
 					}
-					color = color * (1 / pow(n, 2));
+					color = color * (1 / pow(sqrtN, 2));
 				}
 
 			}
