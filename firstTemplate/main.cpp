@@ -27,7 +27,7 @@
 //Enable OpenGL drawing.  
 bool drawModeEnabled = false;
 
-bool P3F_scene = false; //choose between P3F scene or a built-in random scene
+bool P3F_scene = true; //choose between P3F scene or a built-in random scene
 
 #define MAX_DEPTH 4  //number of bounces
 
@@ -654,6 +654,15 @@ float random(float min, float max) {
 	return min + rand_float() * (max - min);
 }
 
+Vector rand_in_unit_circle() {
+	float angle = 2 * PI * rand_float();
+	float radius = sqrt(rand_float()); 
+	float x = radius * cos(angle);
+	float y = radius * sin(angle);
+	Vector vec = Vector(x, y, 0);
+	return vec;
+}
+
 // Render function by primary ray casting from the eye towards the scene's objects
 
 void renderScene()
@@ -662,7 +671,8 @@ void renderScene()
 	int index_col = 0;
 	unsigned int counter = 0;
 	bool antiAliasing = true;
-	Vector pixel;
+	Vector pixel, lensSample;
+	float aperture = scene->GetCamera()->GetAperture();
 
 	set_rand_seed(time(NULL) * time(NULL));
 	float n = scene->GetSamplesPerPixel();
@@ -671,10 +681,14 @@ void renderScene()
 		antiAliasing = false;
 	}
 
-
 	if (drawModeEnabled) {
 		glClear(GL_COLOR_BUFFER_BIT);
 		scene->GetCamera()->SetEye(Vector(camX, camY, camZ));  //Camera motion
+	}
+
+	bool dof = false;
+	if (aperture > 0) {
+		dof = true;
 	}
 
 	for (int y = 0; y < RES_Y; y++)
@@ -682,23 +696,32 @@ void renderScene()
 		for (int x = 0; x < RES_X; x++)
 		{
 			Color color;
+			
+			if (dof) { // has dof
+				
+				int dofValue = 0;
 
-			if (!antiAliasing) {
+				if (!antiAliasing) {
+					dofValue = 2;
 
-				pixel.x = x + 0.5f;
-				pixel.y = y + 0.5f;
+					pixel.x = x + 0.5f;
+					pixel.y = y + 0.5f;
 
-				Ray ray = scene->GetCamera()->PrimaryRay(pixel);   //function from camera.h
+				}
+				else {
+					dofValue = scene->GetSamplesPerPixel();
+				}
 
-				color = rayTracing(ray, 1, 1.0).clamp();
+				for (int p = 0; p < dofValue; p++) {
+					for (int q = 0; q < dofValue; q++) {
 
-			}
-			else { // with anti-aliasing
+						lensSample = rand_in_unit_circle() * aperture;
 
-				for (int p = 0; p < n; p++) {
-					for (int q = 0; q < n; q++) {
-
-						Vector sample = Vector(x + ((p + rand_float()) / n), y + ((q + rand_float()) / n), 0.0f);
+						Vector sample;
+						if (sqrt(n) != 0) {
+							sample.x = x + random(p, p + 1) / sqrt(n);
+							sample.y = y + random(q, q + 1) / sqrt(n);
+						}
 
 						Ray ray = scene->GetCamera()->PrimaryRay(sample);
 						color += rayTracing(ray, 1, 1.0);
@@ -706,7 +729,38 @@ void renderScene()
 					}
 				}
 				color = color * (1 / pow(n, 2));
+
+
 			}
+			else { // has no dof
+
+				if (!antiAliasing) {
+
+					pixel.x = x + 0.5f;
+					pixel.y = y + 0.5f;
+
+					Ray ray = scene->GetCamera()->PrimaryRay(pixel);   //function from camera.h
+
+					color = rayTracing(ray, 1, 1.0).clamp();
+
+				}
+				else { // with anti-aliasing
+
+					for (int p = 0; p < n; p++) {
+						for (int q = 0; q < n; q++) {
+
+							Vector sample = Vector(x + ((p + rand_float()) / n), y + ((q + rand_float()) / n), 0.0f);
+
+							Ray ray = scene->GetCamera()->PrimaryRay(sample);
+							color += rayTracing(ray, 1, 1.0);
+
+						}
+					}
+					color = color * (1 / pow(n, 2));
+				}
+
+			}
+			
 
 
 
