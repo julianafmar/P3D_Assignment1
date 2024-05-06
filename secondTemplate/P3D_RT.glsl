@@ -33,7 +33,7 @@ bool hit_world(Ray r, float tmin, float tmax, out HitRecord rec)
     {
         hit = true;
         rec.material = createDiffuseMaterial(vec3(0.2, 0.95, 0.1));
-        //rec.material = createDiffuseMaterial(vec3(0.4, 0.2, 0.1));
+        rec.material = createDiffuseMaterial(vec3(0.4, 0.2, 0.1));
     }
 
     if(hit_sphere(
@@ -164,52 +164,61 @@ if(hit_sphere(
 }
 
 vec3 directlighting(pointLight pl, Ray r, HitRecord rec){
-    vec3 diffCol, specCol;
-    vec3 colorOut = vec3(0.0, 0.0, 0.0);
-    float shininess;
-    HitRecord dummy;
+    vec3 lightDir = normalize(pl.pos - rec.pos);
+    vec3 viewDir = normalize(-r.d); // Assuming r.d is pointing from the eye to the object
+    vec3 reflectDir = reflect(-lightDir, rec.normal);
+    float distance = length(pl.pos - rec.pos);
+    float attenuation = 1.0 / (distance * distance);
 
-   //INSERT YOUR CODE HERE
-    
-	return colorOut; 
+    // Diffuse component
+    float diff = max(dot(rec.normal, lightDir), 0.0);
+    vec3 diffuse = diff * rec.material.albedo;
+
+    // Specular component
+    float spec = pow(max(dot(viewDir, reflectDir), 0.0), 1.0);
+    vec3 specular = spec * rec.material.specColor;
+
+    // Attenuation
+    vec3 result = (diffuse + specular) * pl.color * attenuation;
+    return result;
 }
+
 
 #define MAX_BOUNCES 10
 
-vec3 rayColor(Ray r)
-{
+vec3 rayColor(Ray r) {
     HitRecord rec;
     vec3 col = vec3(0.0);
     vec3 throughput = vec3(1.0f, 1.0f, 1.0f);
-    for(int i = 0; i < MAX_BOUNCES; ++i)
-    {
-        if(hit_world(r, 0.001, 10000.0, rec))
-        {
-            //calculate direct lighting with 3 white point lights:
-            {
-                //createPointLight(vec3(-10.0, 15.0, 0.0), vec3(1.0, 1.0, 1.0))
-                //createPointLight(vec3(8.0, 15.0, 3.0), vec3(1.0, 1.0, 1.0))
-                //createPointLight(vec3(1.0, 15.0, -9.0), vec3(1.0, 1.0, 1.0))
 
-                //for instance: col += directlighting(createPointLight(vec3(-10.0, 15.0, 0.0), vec3(1.0, 1.0, 1.0)), r, rec) * throughput;
+    pointLight lights[3];
+    lights[0] = createPointLight(vec3(-10.0, 15.0, 0.0), vec3(1.0, 1.0, 1.0));
+    lights[1] = createPointLight(vec3(8.0, 15.0, 3.0), vec3(1.0, 1.0, 1.0));
+    lights[2] = createPointLight(vec3(1.0, 15.0, -9.0), vec3(1.0, 1.0, 1.0));
+
+    for (int i = 0; i < MAX_BOUNCES; ++i) {
+        if (hit_world(r, 0.001, 10000.0, rec)) {
+            for (int l = 0; l < 3; l++) {
+                col += directlighting(lights[l], r, rec) * throughput;
             }
-           
-            //calculate secondary ray and update throughput
+
             Ray scatterRay;
             vec3 atten;
-            if(scatter(r, rec, atten, scatterRay))
-            {   //  insert your code here    }
-        
-        }
-        else  //background
-        {
-            float t = 0.8 * (r.d.y + 1.0);
+            if (scatter(r, rec, atten, scatterRay)) {
+                r = scatterRay;
+                throughput *= atten;
+            } else {
+                break;  // No further rays to follow if scatter fails
+            }
+        } else {
+            float t = 0.5 * (normalize(r.d).y + 1.0);
             col += throughput * mix(vec3(1.0), vec3(0.5, 0.7, 1.0), t);
             break;
         }
     }
     return col;
 }
+
 
 #define MAX_SAMPLES 10000.0
 
