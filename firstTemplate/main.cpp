@@ -25,7 +25,7 @@
 #include "macros.h"
 
 //Enable OpenGL drawing.  
-bool drawModeEnabled = false;
+bool drawModeEnabled = true;
 
 bool P3F_scene = true; //choose between P3F scene or a built-in random scene
 
@@ -76,7 +76,7 @@ Scene* scene = NULL;
 
 Grid* grid_ptr = NULL;
 BVH* bvh_ptr = NULL;
-accelerator Accel_Struct = NONE;
+accelerator Accel_Struct = GRID_ACC;
 
 int RES_X, RES_Y;
 
@@ -512,15 +512,16 @@ Color getDiffuse(Ray shadowRay, Material* material, Vector hitRayDir, Vector nor
 	bool shadow = false;
 	float hitDist;
 	
-	//if (Accel_Struct == GRID_ACC) {
-	//	shadow = grid_ptr->Traverse(shadowRay);
-	//}
+	if (Accel_Struct == GRID_ACC) {
+		shadow = grid_ptr->Traverse(shadowRay);
+	}
 
-	
-	for (int j = 0; j < scene->getNumObjects(); j++) {
-		if (scene->getObject(j)->intercepts(shadowRay, hitDist)) {
-			shadow = true;
-			break;
+	else {
+		for (int j = 0; j < scene->getNumObjects(); j++) {
+			if (scene->getObject(j)->intercepts(shadowRay, hitDist)) {
+				shadow = true;
+				break;
+			}
 		}
 	}
 	
@@ -558,17 +559,31 @@ Color rayTracing(Ray ray, int depth, float ior_1)  {
 	bool hit = false;
 
 	int objects = scene->getNumObjects();
-	for (int i = 0; i < objects; i++) {
-		Object* obj = scene->getObject(i);
+
+	if (Accel_Struct == GRID_ACC) {
+
+		hit = grid_ptr->Traverse(ray, &closestObj, hitPoint);
 		
-		if (obj->intercepts(ray, hitDist) && hitDist < shortDist) {
-			hit = true;
-			shortDist = hitDist;
-			closestObj = obj;
-		}
 	}
 
-	hitPoint = ray.origin + ray.direction * shortDist;
+	else if (Accel_Struct == BVH_ACC) {
+
+		hit = bvh_ptr->Traverse(ray, &closestObj, hitPoint);
+	}
+
+	else {
+		for (int i = 0; i < objects; i++) {
+			Object* obj = scene->getObject(i);
+
+			if (obj->intercepts(ray, hitDist) && hitDist < shortDist) {
+				hit = true;
+				shortDist = hitDist;
+				closestObj = obj;
+			}
+		}
+
+		hitPoint = ray.origin + ray.direction * shortDist;
+	}
 
 	if (!hit) {
 		return scene->GetBackgroundColor();
@@ -715,7 +730,7 @@ void renderScene()
 				for (int p = 0; p < dofValue; p++) {
 					for (int q = 0; q < dofValue; q++) {
 
-						lensSample = rand_in_unit_circle() * aperture;
+						lensSample = rand_in_unit_circle() * aperture / 2;
 
 						if (sqrtN != 0) {
 							pixel.x = x + random(p, p + 1) / dofValue;
