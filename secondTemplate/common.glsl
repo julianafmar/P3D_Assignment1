@@ -137,9 +137,11 @@ Ray getRay(Camera cam, vec2 pixel_sample)  //rnd pixel_sample viewport coordinat
     vec2 ls = cam.lensRadius * randomInUnitDisk(gSeed);  //ls - lens sample for DOF
     float time = cam.time0 + hash1(gSeed) * (cam.time1 - cam.time0);
     
+    vec3 eye_offset = cam.u * ls.x + cam.v * ls.y;
+    vec3 ray_direction = cam.n * cam.planeDist + (pixel_sample.x - 0.5) * cam.width * cam.u + (pixel_sample.y - 0.5) * cam.height * cam.v - cam.eye;
     //Calculate eye_offset and ray direction
 
-    return createRay(eye_offset, normalize(ray direction), time);
+    return createRay(eye_offset, normalize(ray_direction), time);
 }
 
 // MT_ material type
@@ -206,7 +208,9 @@ struct HitRecord
 
 float schlick(float cosine, float refIdx)
 {
-    //INSERT YOUR CODE HERE
+    float r0 = (1.0 - refIdx) / (1.0 + refIdx);
+    r0 = r0 * r0;
+    return r0 + (1.0 - r0) * pow((1.0 - cosine), 5.0);
 }
 
 bool scatter(Ray rIn, HitRecord rec, out vec3 atten, out Ray rScattered)
@@ -234,8 +238,10 @@ bool scatter(Ray rIn, HitRecord rec, out vec3 atten, out Ray rScattered)
         {
             outwardNormal = -rec.normal;
             niOverNt = rec.material.refIdx;
-            cosine = refraction cosine for schlick; 
-            atten = apply Beer's law by using rec.material.refractColor
+            cosine = rec.material.refIdx * dot(rIn.d, rec.normal);
+            //cosine = refraction cosine for schlick; 
+            
+            //atten = apply Beer's law by using rec.material.refractColor
         }
         else  //hit from outside
         {
@@ -251,7 +257,7 @@ bool scatter(Ray rIn, HitRecord rec, out vec3 atten, out Ray rScattered)
         //if no total reflection  reflectProb = schlick(cosine, rec.material.refIdx);  
         //else reflectProb = 1.0;
 
-        if( hash1(gSeed) < reflectProb)  //Reflection
+        if( hash1(gSeed) < reflectProb) { //Reflection
         // rScattered = calculate reflected ray
           // atten *= vec3(reflectProb); not necessary since we are only scattering reflectProb rays and not all reflected rays
         
