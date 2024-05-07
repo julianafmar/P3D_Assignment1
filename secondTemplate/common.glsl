@@ -132,16 +132,28 @@ Camera createCamera(
     return cam;
 }
 
-Ray getRay(Camera cam, vec2 pixel_sample)  // rnd pixel_sample viewport coordinates
+Ray getRay(Camera cam, vec2 pixel_sample)  // TEM DE SER MUDADA
 {
-    vec2 ls = cam.lensRadius * randomInUnitDisk(gSeed);
+    vec2 ls = cam.lensRadius * randomInUnitDisk(gSeed); 
     float time = cam.time0 + hash1(gSeed) * (cam.time1 - cam.time0);
     
-    vec3 eye_offset = cam.eye + cam.u * ls.x + cam.v * ls.y;
-    vec3 pixelPoint = cam.eye + cam.n * cam.planeDist + (pixel_sample.x - 0.5) * cam.width * cam.u + (pixel_sample.y - 0.5) * cam.height * cam.v;
-    vec3 ray_direction = normalize(pixelPoint - eye_offset);
+    vec3 aux = vec3(
+        cam.width * (pixel_sample.x / iResolution.x - 0.5),
+		cam.height * (pixel_sample.y / iResolution.y - 0.5),
+		- cam.planeDist
+    );
 
-    return createRay(eye_offset, ray_direction, time);
+    vec3 focalPlaneSample = aux * cam.focusDist;
+
+    vec3 eyeOffset = cam.eye + cam.u * ls.x + cam.v * ls.y;
+
+    vec3 rayDirection = normalize(
+        cam.u * (focalPlaneSample.x - ls.x) + 
+        cam.v * (focalPlaneSample.y - ls.y) + 
+        cam.n * focalPlaneSample.z
+    );
+
+    return createRay(eyeOffset, rayDirection, time);
 }
 
 // MT_ material type
@@ -285,11 +297,6 @@ Triangle createTriangle(vec3 v0, vec3 v1, vec3 v2)
 
 bool hit_triangle(Triangle t, Ray r, float tmin, float tmax, out HitRecord rec)
 {
-    if (dot(r.d, triangle.normal) == 0.0) {
-        return false;
-    }
-
-
     vec3 v0v1 = t.b - t.a; 
     vec3 v0v2 = t.c - t.a; 
     vec3 pvec = cross(r.d, v0v2); 
@@ -368,32 +375,27 @@ vec3 center(MovingSphere mvsphere, float time)
  * the book's notion of "hittable". E.g. hit_<type>.
  */
 
-bool hit_sphere(Sphere s, Ray r, float tmin, float tmax, out HitRecord rec) {
-    float a = dot(r.d, r.d);   // Coefficient of t^2
-    float b = 2.0 * dot(r.o - s.center, r.d);  // Coefficient of t
-    float c = dot(r.o - s.center, r.o - s.center) - pow(s.radius, 2.0);  // Constant term
+bool hit_sphere(Sphere s, Ray r, float tmin, float tmax, out HitRecord rec) { // TEM DE SE MUDAR
+    vec3 oc = s.center - r.o;
+    float b = dot(r.d, oc);
+    float c = dot(oc, oc) - pow(s.radius, 2.0);
 
-    float discriminant = pow(b, 2.0) - c;
+    if (c > 0.0 && b <= 0.0) return false;
 
-    if (discriminant > 0.0) {
-        float root = (-b - sqrt(discriminant)) / (2.0 * a);
-        if (root < tmax && root > tmin) {
-            rec.t = root;
-            rec.pos = pointOnRay(r, rec.t);
-            rec.normal = normalize(rec.pos - s.center);
-            return true;
-        }
-        
-        root = (-b + sqrt(discriminant)) / (2.0 * a);
-        if (root < tmax && root > tmin) {
-            rec.t = root;
-            rec.pos = pointOnRay(r, rec.t);
-            rec.normal = normalize(rec.pos - s.center);
-            return true;
-        }
+    float delta = b * b - c;
+
+    if (delta <= 0.0) return false;
+
+    float t = (c > 0.0) ? b - sqrt(delta) : b + sqrt(delta);
+    
+    if (t < tmax && t > tmin) {
+        rec.t = t;
+        rec.pos = pointOnRay(r, t);
+        rec.normal = normalize((rec.pos - s.center) / s.radius);
+        return true;
     }
+    return false;
 }
-
 
 bool hit_movingSphere(MovingSphere s, Ray r, float tmin, float tmax, out HitRecord rec) {
     vec3 centerAtTime = s.center0 + ((s.center1 - s.center0) * ((r.t - s.time0) / (s.time1 - s.time0)));
@@ -425,8 +427,6 @@ bool hit_movingSphere(MovingSphere s, Ray r, float tmin, float tmax, out HitReco
     }
     return false;
 }
-
-
 
 struct pointLight {
     vec3 pos;
