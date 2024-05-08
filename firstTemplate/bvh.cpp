@@ -123,7 +123,7 @@ void BVH::build_recursive(int left_index, int right_index, BVHNode *node) {
 	}
 
 	// Creating node 
-	node->makeNode(left_index);
+	node->makeNode(nodes.size());
 	BVHNode *left_node = new BVHNode();
 	BVHNode *right_node = new BVHNode();
 	left_node->setAABB(left);
