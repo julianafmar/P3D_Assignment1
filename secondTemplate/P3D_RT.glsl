@@ -165,22 +165,21 @@ if(hit_sphere(
 
 vec3 directlighting(pointLight pl, Ray r, HitRecord rec){
     vec3 lightDir = normalize(pl.pos - rec.pos);
-    vec3 viewDir = normalize(-r.d); // Assuming r.d is pointing from the eye to the object
+    vec3 viewDir = normalize(-r.d);
     vec3 reflectDir = reflect(-lightDir, rec.normal);
     float distance = length(pl.pos - rec.pos);
     float attenuation = 1.0 / (distance * distance);
 
     // Diffuse component
     float diff = max(dot(rec.normal, lightDir), 0.0);
-    vec3 diffuse = diff * rec.material.albedo;
+    vec3 diffCol = diff * rec.material.albedo;
 
     // Specular component
     float spec = pow(max(dot(viewDir, reflectDir), 0.0), 1.0);
-    vec3 specular = spec * rec.material.specColor;
+    vec3 specCol = spec * rec.material.specColor;
 
-    // Attenuation
-    vec3 result = (diffuse + specular) * pl.color * attenuation;
-    return result;
+    vec3 colorOut = (diffCol + specCol) * pl.color * attenuation;
+    return colorOut;
 }
 
 

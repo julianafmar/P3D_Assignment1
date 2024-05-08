@@ -132,26 +132,18 @@ Camera createCamera(
     return cam;
 }
 
-Ray getRay(Camera cam, vec2 pixel_sample)  // TEM DE SER MUDADA
+Ray getRay(Camera cam, vec2 pixel_sample)
 {
     vec2 ls = cam.lensRadius * randomInUnitDisk(gSeed); 
     float time = cam.time0 + hash1(gSeed) * (cam.time1 - cam.time0);
     
-    vec3 aux = vec3(
-        cam.width * (pixel_sample.x / iResolution.x - 0.5),
-		cam.height * (pixel_sample.y / iResolution.y - 0.5),
-		- cam.planeDist
-    );
-
-    vec3 focalPlaneSample = aux * cam.focusDist;
-
     vec3 eyeOffset = cam.eye + cam.u * ls.x + cam.v * ls.y;
 
-    vec3 rayDirection = normalize(
-        cam.u * (focalPlaneSample.x - ls.x) + 
-        cam.v * (focalPlaneSample.y - ls.y) + 
-        cam.n * focalPlaneSample.z
-    );
+    vec3 pixelOnImagePlane = vec3(cam.width * (pixel_sample.x / iResolution.x - 0.5), cam.height * (pixel_sample.y / iResolution.y - 0.5), -cam.planeDist);
+
+    vec3 focalPlaneSample = pixelOnImagePlane * cam.focusDist;
+
+    vec3 rayDirection = normalize(cam.u * (focalPlaneSample.x - ls.x) + cam.v * (focalPlaneSample.y - ls.y) + cam.n * focalPlaneSample.z);
 
     return createRay(eyeOffset, rayDirection, time);
 }
@@ -375,7 +367,7 @@ vec3 center(MovingSphere mvsphere, float time)
  * the book's notion of "hittable". E.g. hit_<type>.
  */
 
-bool hit_sphere(Sphere s, Ray r, float tmin, float tmax, out HitRecord rec) { // TEM DE SE MUDAR
+bool hit_sphere(Sphere s, Ray r, float tmin, float tmax, out HitRecord rec) {
     vec3 oc = s.center - r.o;
     float b = dot(r.d, oc);
     float c = dot(oc, oc) - pow(s.radius, 2.0);
@@ -386,7 +378,9 @@ bool hit_sphere(Sphere s, Ray r, float tmin, float tmax, out HitRecord rec) { //
 
     if (delta <= 0.0) return false;
 
-    float t = (c > 0.0) ? b - sqrt(delta) : b + sqrt(delta);
+    float t;
+    if (c > 0.0) t = b - sqrt(delta);
+    else t = b + sqrt(delta);
     
     if (t < tmax && t > tmin) {
         rec.t = t;
@@ -398,32 +392,26 @@ bool hit_sphere(Sphere s, Ray r, float tmin, float tmax, out HitRecord rec) { //
 }
 
 bool hit_movingSphere(MovingSphere s, Ray r, float tmin, float tmax, out HitRecord rec) {
-    vec3 centerAtTime = s.center0 + ((s.center1 - s.center0) * ((r.t - s.time0) / (s.time1 - s.time0)));
-    vec3 oc = r.o - centerAtTime;  // Vector from ray origin to sphere's center at time t
-    float a = dot(r.d, r.d);  // Coefficient of t^2
-    float b = 2.0 * dot(oc, r.d);  // Coefficient of t
-    float c = dot(oc, oc) - s.radius * s.radius;  // Constant term
+    vec3 center = center(s, r.t);
+    vec3 oc = center - r.o;
+    float b = dot(r.d, oc);
+    float c = dot(oc, oc) - pow(s.radius, 2.0);
 
-    float discriminant = b * b - 4.0 * a * c;
+    if (c > 0.0 && b <= 0.0) return false;
 
-    if (discriminant > 0.0) {
-        float sqrtDiscriminant = sqrt(discriminant);
-        // Find the nearest root that lies in the acceptable range
-        float temp = (-b - sqrtDiscriminant) / (2.0 * a);
-        if (temp < tmax && temp > tmin) {
-            rec.t = temp;
-            rec.pos = pointOnRay(r, rec.t);
-            rec.normal = normalize((rec.pos - centerAtTime) / s.radius);  // Normalize the normal
-            return true;
-        }
-        
-        temp = (-b + sqrtDiscriminant) / (2.0 * a);
-        if (temp < tmax && temp > tmin) {
-            rec.t = temp;
-            rec.pos = pointOnRay(r, rec.t);
-            rec.normal = normalize((rec.pos - centerAtTime) / s.radius);  // Normalize the normal
-            return true;
-        }
+    float delta = b * b - c;
+
+    if (delta <= 0.0) return false;
+
+    float t;
+    if (c > 0.0) t = b - sqrt(delta);
+    else t = b + sqrt(delta);
+    
+    if (t < tmax && t > tmin) {
+        rec.t = t;
+        rec.pos = pointOnRay(r, t);
+        rec.normal = normalize((rec.pos - center) / s.radius);
+        return true;
     }
     return false;
 }
