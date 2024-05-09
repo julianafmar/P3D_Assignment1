@@ -516,6 +516,10 @@ Color getDiffuse(Ray shadowRay, Material* material, Vector hitRayDir, Vector nor
 		shadow = grid_ptr->Traverse(shadowRay);
 	}
 
+	else if (Accel_Struct == BVH_ACC) {
+		shadow = bvh_ptr->Traverse(shadowRay);
+	}
+
 	else {
 		for (int j = 0; j < scene->getNumObjects(); j++) {
 			if (scene->getObject(j)->intercepts(shadowRay, hitDist)) {
@@ -585,7 +589,7 @@ Color rayTracing(Ray ray, int depth, float ior_1)  {
 		hitPoint = ray.origin + ray.direction * shortDist;
 	}
 
-	if (!hit) {
+	if (!hit || closestObj == nullptr) {
 		return scene->GetBackgroundColor();
 	}
 
