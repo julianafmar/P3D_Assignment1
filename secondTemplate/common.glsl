@@ -220,9 +220,9 @@ float schlick(float cosine, float refIdx)
 bool scatter(Ray rIn, HitRecord rec, out vec3 atten, out Ray rScattered) {
     if (rec.material.type == MT_DIFFUSE) {
         // Diffuse reflection
-        vec3 target = rec.pos + rec.normal /* * epsilon */+ normalize(randomInUnitSphere(gSeed));
+        vec3 target = rec.pos + rec.normal + normalize(randomInUnitSphere(gSeed));
         rScattered = createRay(rec.pos, target - rec.pos);
-        atten = rec.material.albedo /* * max(dot(rScattered.d, rec.normal), 0.0) */ / pi;
+        atten = rec.material.albedo / pi;
         return true;
     }
 
