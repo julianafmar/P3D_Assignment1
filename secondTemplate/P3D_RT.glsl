@@ -59,7 +59,7 @@ bool hit_world(Ray r, float tmin, float tmax, out HitRecord rec)
     }
 
 if(hit_sphere(
-        createSphere(vec3(0.0, 1.0, 0.0), -0.95),
+        createSphere(vec3(0.0, 1.0, 0.0), -0.5),
         r,
         tmin,
         rec.t,
@@ -164,21 +164,31 @@ if(hit_sphere(
 }
 
 vec3 directlighting(pointLight pl, Ray r, HitRecord rec){
+    vec3 diffCol, specCol;
+    vec3 colorOut = vec3(0.0, 0.0, 0.0);
+    float shininess;
+    HitRecord dummy;
+
     vec3 lightDir = normalize(pl.pos - rec.pos);
     vec3 viewDir = normalize(-r.d);
     vec3 reflectDir = reflect(-lightDir, rec.normal);
     float distance = length(pl.pos - rec.pos);
-    float attenuation = 1.0 / (distance * distance);
+    vec3 shadingNormal;
+
+    if(dot(-r.d, rec.normal) > 0.0) shadingNormal = rec.normal;
+    else shadingNormal = -rec.normal;
+
+    Ray shadowRay = createRay(rec.pos + epsilon * shadingNormal, lightDir);
+    if (hit_world(shadowRay, 0.0, length(pl.pos - rec.pos), dummy))
+        return vec3(0.0);
 
     // Diffuse component
-    float diff = max(dot(rec.normal, lightDir), 0.0);
-    vec3 diffCol = diff * rec.material.albedo;
+    diffCol = max(dot(rec.normal, lightDir), 0.0) * rec.material.albedo / pi;
 
     // Specular component
-    float spec = pow(max(dot(viewDir, reflectDir), 0.0), 1.0);
-    vec3 specCol = spec * rec.material.specColor;
+    specCol = pow(max(dot(viewDir, reflectDir), 0.0), 1.0) * rec.material.specColor;
 
-    vec3 colorOut = (diffCol + specCol) * pl.color * attenuation;
+    colorOut = (diffCol + specCol) * pl.color;
     return colorOut;
 }
 
