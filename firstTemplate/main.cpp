@@ -25,7 +25,7 @@
 #include "macros.h"
 
 //Enable OpenGL drawing.  
-bool drawModeEnabled = true;
+bool drawModeEnabled = false;
 
 bool P3F_scene = true; //choose between P3F scene or a built-in random scene
 
@@ -484,7 +484,8 @@ Color getRefraction(Vector hitPoint, Vector normalVec, Vector tangentVec, float 
 Color getReflection(Vector normalVec, float cos, Vector revRayDir, Vector hitPoint, Material* material, int depth, float ior_1) {
 	
 	// 0.3 is roughness
-	Vector reflRayDir = normalVec * cos * 2 - revRayDir + rand_in_unit_sphere() * 0.3 ;
+	Vector reflRayDir = normalVec * cos * 2 - revRayDir + rand_in_unit_sphere() * 0.0;
+
 	reflRayDir.normalize();
 	float reflection = material->GetReflection();
 	Color color;
@@ -506,7 +507,7 @@ Color getReflection(Vector normalVec, float cos, Vector revRayDir, Vector hitPoi
 	return reflColor;
 }
 
-Color getDiffuse(Ray shadowRay, Material* material, Vector hitRayDir, Vector normalVec, Vector lightDir, Color lightColour) {
+Color getDiffuse(Ray shadowRay, Material* material, Vector hitRayDir, Vector normalVec, Vector lightDir, Color lightColour, float lightDotProduct) {
 	
 	Color color = Color();
 	bool shadow = false;
@@ -522,7 +523,8 @@ Color getDiffuse(Ray shadowRay, Material* material, Vector hitRayDir, Vector nor
 
 	else {
 		for (int j = 0; j < scene->getNumObjects(); j++) {
-			if (scene->getObject(j)->intercepts(shadowRay, hitDist)) {
+			float maxDist = shadowRay.direction.length();
+			if (scene->getObject(j)->intercepts(shadowRay, hitDist) && hitDist < maxDist) {
 				shadow = true;
 				break;
 			}
@@ -533,19 +535,17 @@ Color getDiffuse(Ray shadowRay, Material* material, Vector hitRayDir, Vector nor
 	if (shadow)
 		return color;
 
+	Color diffuse_colour = material->GetDiffColor() * material->GetDiffuse() * lightDotProduct;
+
 	// n sei se para as soft shadows basta multiplicar isto por lightDir + normalVec
 	float normalDotProd = lightDir * normalVec /* * (lightDir * normalVec)*/;
 
-	Color diffuse_colour;
-	if (normalDotProd > 0) {
-		diffuse_colour = material->GetDiffColor() * material->GetDiffuse() * normalDotProd;
-	}
 
 	// Blinn approximation 
 	float halfwayProduct = ((lightDir + hitRayDir).normalize()) * normalVec;
 
 	Color specularColor;
-	if (halfwayProduct > 0) {
+	if (material->GetSpecular() > 0 && halfwayProduct > 0) {
 		specularColor = material->GetSpecColor() * material->GetSpecular() * pow(halfwayProduct, material->GetShine());
 	}
 
@@ -554,12 +554,14 @@ Color getDiffuse(Ray shadowRay, Material* material, Vector hitRayDir, Vector nor
 
 
 Color rayTracing(Ray ray, int depth, float ior_1)  {
+
+	bool useImage = scene->GetSkyBoxFlg();
 	Color color = Color();
 
 	float hitDist, shortDist = INFINITY;
 
 	Object* closestObj = nullptr;
-	Vector hitPoint;
+	Vector hitPoint, light_point;
 	bool hit = false;
 
 	int objects = scene->getNumObjects();
@@ -590,6 +592,7 @@ Color rayTracing(Ray ray, int depth, float ior_1)  {
 	}
 
 	if (!hit || closestObj == nullptr) {
+		if (useImage) { return scene->GetSkyboxColor(ray); }
 		return scene->GetBackgroundColor();
 	}
 
@@ -618,14 +621,16 @@ Color rayTracing(Ray ray, int depth, float ior_1)  {
 		Vector lightDir;
 
 		lightDir = (light->position - hitPoint).normalize();
-		float lightDotProduct = lightDir * normalVec;
+
+
+		float lightDotProduct = (lightDir/lightDir.length()) * normalVec;
 		
 		if (lightDotProduct <= 0) {
 			continue;
 		}
 
 		Ray shadowRay(reflectPoint, lightDir);
-		color += getDiffuse(shadowRay, material, revRayDir, normalVec, lightDir, light->color*0.8);
+		color += getDiffuse(shadowRay, material, revRayDir, normalVec, lightDir, light->color, lightDotProduct);
 	}
 
 	if (depth >= MAX_DEPTH || (material->GetTransmittance() == 0 && material->GetReflection() == 0))
