@@ -168,25 +168,26 @@ vec3 directlighting(pointLight pl, Ray r, HitRecord rec){
     vec3 colorOut = vec3(0.0, 0.0, 0.0);
     float shininess;
     HitRecord dummy;
+    vec3 shadingNormal;
 
     vec3 lightDir = normalize(pl.pos - rec.pos);
-    vec3 viewDir = normalize(-r.d);
-    vec3 reflectDir = reflect(-lightDir, rec.normal);
-    float distance = length(pl.pos - rec.pos);
-    vec3 shadingNormal;
 
     if(dot(-r.d, rec.normal) > 0.0) shadingNormal = rec.normal;
     else shadingNormal = -rec.normal;
 
     Ray shadowRay = createRay(rec.pos + epsilon * shadingNormal, lightDir);
-    if (hit_world(shadowRay, 0.0, length(pl.pos - rec.pos), dummy))
+    if (hit_world(shadowRay, 0.0, length(pl.pos - rec.pos), dummy)) // Hard shadow
         return vec3(0.0);
 
-    // Diffuse component
+    // Diffuse component with Lambert's cosine law
     diffCol = max(dot(rec.normal, lightDir), 0.0) * rec.material.albedo / pi;
 
     // Specular component
-    specCol = pow(max(dot(viewDir, reflectDir), 0.0), 1.0) * rec.material.specColor;
+    shininess = 4.0/(pow(rec.material.roughness, 4.0) + epsilon) - 2.0;
+    float aux = dot(normalize(lightDir - r.d), shadingNormal);
+    if (aux > 0.0) { // Check if the angle between the half-vector and the shading normal is positive
+        specCol = rec.material.specColor * pow(aux, shininess);
+    }
 
     colorOut = (diffCol + specCol) * pl.color;
     return colorOut;
@@ -214,13 +215,13 @@ vec3 rayColor(Ray r) {
             Ray scatterRay;
             vec3 atten;
             if (scatter(r, rec, atten, scatterRay)) {
-                r = scatterRay;
-                throughput *= atten;
+                r = scatterRay; // calculate secondary ray
+                throughput *= atten; // update throughput
             } else {
                 break;  // No further rays to follow if scatter fails
             }
         } else {
-            float t = 0.5 * (normalize(r.d).y + 1.0);
+            float t = 0.8 * (r.d.y + 1.0);
             col += throughput * mix(vec3(1.0), vec3(0.5, 0.7, 1.0), t);
             break;
         }

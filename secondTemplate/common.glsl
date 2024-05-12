@@ -132,9 +132,9 @@ Camera createCamera(
     return cam;
 }
 
-Ray getRay(Camera cam, vec2 pixel_sample)
+Ray getRay(Camera cam, vec2 pixel_sample) //rnd pixel_sample viewport coordinates
 {
-    vec2 ls = cam.lensRadius * randomInUnitDisk(gSeed); 
+    vec2 ls = cam.lensRadius * randomInUnitDisk(gSeed); //ls - lens sample for DOF
     float time = cam.time0 + hash1(gSeed) * (cam.time1 - cam.time0);
     
     vec3 eyeOffset = cam.eye + cam.u * ls.x + cam.v * ls.y;
@@ -218,11 +218,10 @@ float schlick(float cosine, float refIdx)
 }
 
 bool scatter(Ray rIn, HitRecord rec, out vec3 atten, out Ray rScattered) {
-    if (rec.material.type == MT_DIFFUSE) {
-        // Diffuse reflection
+    if (rec.material.type == MT_DIFFUSE) { // Diffuse reflection
         vec3 target = rec.pos + rec.normal + normalize(randomInUnitSphere(gSeed));
         rScattered = createRay(rec.pos, target - rec.pos);
-        atten = rec.material.albedo / pi;
+        atten = rec.material.albedo * max(dot(rScattered.d, rec.normal), 0.0) / pi;
         return true;
     }
 
@@ -234,30 +233,32 @@ bool scatter(Ray rIn, HitRecord rec, out vec3 atten, out Ray rScattered) {
         reflectNormal = -rec.normal;
     }
 
-    if (rec.material.type == MT_METAL) {
-        // Metal reflection with possible roughness ('fuzziness')
+    if (rec.material.type == MT_METAL) { // Metal reflection
         vec3 reflected = reflect(normalize(rIn.d), reflectNormal);
-        rScattered = createRay(rec.pos /* + epsilon * reflectNormal */, reflected + rec.material.roughness * randomInUnitSphere(gSeed));
+        rScattered = createRay(rec.pos, reflected + rec.material.roughness * randomInUnitSphere(gSeed));
         atten = rec.material.specColor;
-        return dot(rScattered.d, rec.normal) > 0.0;  // Ensures scattering in the hemisphere
+        return dot(rScattered.d, rec.normal) > 0.0;  
     }
     if (rec.material.type == MT_DIALECTRIC) {
-        // Dielectric (transparent material) with refraction and reflection
-        vec3 outwardNormal;
-        vec3 refracted;
+        // Dielectric with refraction and reflection
+        atten = vec3(1.0);
+        vec3 outwardNormal;        
         float niOverNt;
-        float reflectProb;
+        vec3 refracted;
         float cosine;
-        if (dot(rIn.d, rec.normal) > 0.0) {
+        
+        if (dot(rIn.d, rec.normal) > 0.0) { // hit inside
             outwardNormal = -rec.normal;
             niOverNt = rec.material.refIdx;
             cosine = rec.material.refIdx * dot(rIn.d, rec.normal) / length(rIn.d);
             cosine = sqrt(1.0 - rec.material.refIdx * rec.material.refIdx * (1.0 - cosine * cosine));
-        } else {
+        } else { // hit from outside
             outwardNormal = rec.normal;
             niOverNt = 1.0 / rec.material.refIdx;
-            cosine = -dot(rIn.d, rec.normal) / length(rIn.d);
+            cosine = -dot(rIn.d, rec.normal);
         }
+
+        float reflectProb;
         refracted = refract(rIn.d, outwardNormal, niOverNt);
         if (length(refracted) > 0.0) {
             reflectProb = schlick(cosine, rec.material.refIdx);
@@ -271,19 +272,17 @@ bool scatter(Ray rIn, HitRecord rec, out vec3 atten, out Ray rScattered) {
         } else {
             rScattered = createRay(rec.pos, refracted);
         }
-        atten = vec3(1.0);  // No attenuation on reflection or refraction
         return true;
     }
     return false;
 }
 
-struct Triangle {vec3 a; vec3 b; vec3 c; vec3 normal;};
+struct Triangle {vec3 a; vec3 b; vec3 c; };
 
 Triangle createTriangle(vec3 v0, vec3 v1, vec3 v2)
 {
     Triangle t;
     t.a = v0; t.b = v1; t.c = v2;
-    t.normal = normalize(cross(v1 - v0, v2 - v0));
     return t;
 }
 
@@ -291,6 +290,7 @@ bool hit_triangle(Triangle t, Ray r, float tmin, float tmax, out HitRecord rec)
 {
     vec3 v0v1 = t.b - t.a; 
     vec3 v0v2 = t.c - t.a; 
+    vec3 normal = normalize(cross(v0v1, v0v2));
     vec3 pvec = cross(r.d, v0v2); 
     float det = dot(v0v1, pvec);
 
@@ -309,15 +309,14 @@ bool hit_triangle(Triangle t, Ray r, float tmin, float tmax, out HitRecord rec)
 
     float tx = dot(v0v2, qvec) * invDet; 
 
-    // Check if the intersection is within the bounds of the ray
-    if (tx < tmin || tx > tmax) return false;
-
-    // Record the intersection data
-    rec.t = tx;
-    rec.pos = pointOnRay(r, tx);
-    rec.normal = normalize(cross(v0v1, v0v2)); // Ensure the normal is outward facing
-
-    return true;
+    if(tx < tmax && tx > tmin)
+    {
+        rec.t = tx;
+        rec.normal = normal;
+        rec.pos = pointOnRay(r, rec.t);
+        return true;
+    }
+    return false;
 }
 
 
@@ -341,7 +340,6 @@ struct MovingSphere
     vec3 center0, center1;
     float radius;
     float time0, time1;
-    vec3 velocity;
 };
 
 MovingSphere createMovingSphere(vec3 center0, vec3 center1, float radius, float time0, float time1)
@@ -352,7 +350,6 @@ MovingSphere createMovingSphere(vec3 center0, vec3 center1, float radius, float 
     s.radius = radius;
     s.time0 = time0;
     s.time1 = time1;
-    s.velocity = (center1 - center0) / (time1 - time0);
     return s;
 }
 
@@ -372,7 +369,8 @@ bool hit_sphere(Sphere s, Ray r, float tmin, float tmax, out HitRecord rec) {
     float b = dot(r.d, oc);
     float c = dot(oc, oc) - pow(s.radius, 2.0);
 
-    if (c > 0.0 && b <= 0.0) return false;
+    // Check if ray is outside of the sphere and if sphere is behind the ray, if so return false
+    if (c > 0.0 && b <= 0.0) return false; 
 
     float delta = b * b - c;
 
@@ -392,20 +390,20 @@ bool hit_sphere(Sphere s, Ray r, float tmin, float tmax, out HitRecord rec) {
 }
 
 bool hit_movingSphere(MovingSphere s, Ray r, float tmin, float tmax, out HitRecord rec) {
+    float t;
     vec3 center = center(s, r.t);
     vec3 oc = center - r.o;
-    float b = dot(r.d, oc);
-    float c = dot(oc, oc) - pow(s.radius, 2.0);
+    float B = dot(r.d, oc);
+    float C = dot(oc, oc) - pow(s.radius, 2.0);
 
-    if (c > 0.0 && b <= 0.0) return false;
+    if (C > 0.0 && B <= 0.0) return false;
 
-    float delta = b * b - c;
+    float delta = B * B - C;
 
     if (delta <= 0.0) return false;
 
-    float t;
-    if (c > 0.0) t = b - sqrt(delta);
-    else t = b + sqrt(delta);
+    if (C > 0.0) t = B - sqrt(delta);
+    else t = B + sqrt(delta);
     
     if (t < tmax && t > tmin) {
         rec.t = t;
