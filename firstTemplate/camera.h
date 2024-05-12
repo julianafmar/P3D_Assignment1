@@ -75,34 +75,28 @@ public:
 		float x, y, z;
 
 		x = w * (pixel_sample.x / res_x - 0.5);
-		y = w * (pixel_sample.y / res_y - 0.5);
+		y = h * (pixel_sample.y / res_y - 0.5);
 		z = -plane_dist;
 
-		Vector ray_dir = (u * x + v * y + n * z);
-		ray_dir.normalize();
-
-		return Ray(eye, ray_dir);  
+		Vector ray_dir = (u * x + v * y + n * z).normalize();
+		return Ray(eye, ray_dir);
 	}
 
-	Ray PrimaryRay(const Vector& lens_sample, const Vector& pixel_sample) // DOF: Rays cast from  a thin lens sample to a pixel sample
+	Ray PrimaryRay(const Vector& lens_sample, const Vector& pixel_sample) // DOF: Rays cast from a thin lens sample to a pixel sample
 	{
-		
-		Vector ray_dir;
+		Vector tmp;
+
+		tmp.x = w * (pixel_sample.x / res_x - 0.5);
+		tmp.y = h * (pixel_sample.y / res_y - 0.5);
+		tmp.z = -plane_dist;
+
+		Vector focal_plane_sample = tmp * focal_ratio;
+
 		Vector eye_offset = eye + u * lens_sample.x + v * lens_sample.y;
-		
-		Vector aux;
 
-		Vector focal_plane_sample = aux * focal_ratio;
-
-		aux.x = w * (pixel_sample.x / res_x - 0.5);
-		aux.y = h * (pixel_sample.y / res_y - 0.5);
-		aux.z = -plane_dist;
-
-
-		ray_dir =
-			(u * (focal_plane_sample.x - lens_sample.x) +
-				v * (focal_plane_sample.y - lens_sample.y) +
-				n * focal_plane_sample.z).normalize();
+		Vector ray_dir = (u * (focal_plane_sample.x - lens_sample.x) +
+						  v * (focal_plane_sample.y - lens_sample.y) +
+						  n * focal_plane_sample.z).normalize();
 
 		return Ray(eye_offset, ray_dir);
 	}

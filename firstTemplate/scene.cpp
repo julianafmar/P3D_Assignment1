@@ -16,20 +16,21 @@ Triangle::Triangle(Vector& P0, Vector& P1, Vector& P2)
 	normal.normalize();
 
 	// bounding box
-	float xMin = std::min(P0.x, std::min(P1.x, P2.x));
-	float yMin = std::min(P0.y, std::min(P1.y, P2.y));
-	float zMin = std::min(P0.z, std::min(P1.z, P2.z));
+	float minX = std::min(P0.x, std::min(P1.x, P2.x));
+	float minY = std::min(P0.y, std::min(P1.y, P2.y));
+	float minZ = std::min(P0.z, std::min(P1.z, P2.z));
 
-	float xMax = std::max(P0.x, std::max(P1.x, P2.x));
-	float yMax = std::max(P0.y, std::max(P1.y, P2.y));
-	float zMax = std::max(P0.z, std::max(P1.z, P2.z));
+	float maxX = std::max(P0.x, std::max(P1.x, P2.x));
+	float maxY = std::max(P0.y, std::max(P1.y, P2.y));
+	float maxZ = std::max(P0.z, std::max(P1.z, P2.z));
 
-	Min = Vector(xMin, yMin, zMin);
-	Max = Vector(xMax, yMax, zMax);
+	Min = Vector(minX, minY, minZ);
+	Max = Vector(maxX, maxY, maxZ);
 
 	// enlarge the bounding box a bit just in case...
 	Min -= EPSILON;
 	Max += EPSILON;
+	
 }
 
 AABB Triangle::GetBoundingBox() {
@@ -45,47 +46,49 @@ Vector Triangle::getNormal(Vector point)
 // Ray/Triangle intersection test using Tomas Moller-Ben Trumbore algorithm.
 //
 
-bool Triangle::intercepts(Ray& r, float& t ) {
-
+bool Triangle::intercepts(Ray& r, float& t) {
 	r.direction.normalize();
 
-	float vd = r.direction * normal;
+	float rayDirectionDotNormal = r.direction * normal;
 
-	//ray is parallel to triangle
-	if (vd == 0)
+	// Check if the ray is parallel to the triangle
+	if (rayDirectionDotNormal == 0)
 		return false;
 
-	float D = -(normal * points[0]);
-	float v0 = -(normal * r.origin + D);
+	float planeConstant = -(normal * points[0]);
+	float originToPlaneDistance = -(normal * r.origin + planeConstant);
 
-	t = v0 / vd;
+	// Calculate the intersection point's distance along the ray
+	t = originToPlaneDistance / rayDirectionDotNormal;
 
+	// Check if the intersection point is behind the ray's origin
 	if (t < 0)
 		return false;
 
-	Vector P = r.origin + r.direction * t;
-	Vector C; //perpendicular to triangle
+	// Calculate the actual point of intersection on the plane
+	Vector intersectionPoint = r.origin + r.direction * t;
 
-	//In case any error happens check edge directions are correct
-	// edge 0
+	Vector crossProductResult;
+
+	// Edge from first to second vertex
 	Vector edge0 = points[1] - points[0];
-	Vector vp0 = P - points[0];
-	C = edge0 % vp0;
-	if (normal * C < 0) return false;
+	Vector vectorFromVertex0ToIntersection = intersectionPoint - points[0];
+	crossProductResult = edge0 % vectorFromVertex0ToIntersection;
+	if (normal * crossProductResult < 0) return false;
 
-	// edge 1
+	// Edge from second to third vertex
 	Vector edge1 = points[2] - points[1];
-	Vector vp1 = P - points[1];
-	C = edge1 % vp1;
-	if (normal * C < 0)  return false;
+	Vector vectorFromVertex1ToIntersection = intersectionPoint - points[1];
+	crossProductResult = edge1 % vectorFromVertex1ToIntersection;
+	if (normal * crossProductResult < 0) return false;
 
-	// edge 2
+	// Edge from third to first vertex
 	Vector edge2 = points[0] - points[2];
-	Vector vp2 = P - points[2];
-	C = edge2 % vp2;
-	if (normal * C < 0) return false;
+	Vector vectorFromVertex2ToIntersection = intersectionPoint - points[2];
+	crossProductResult = edge2 % vectorFromVertex2ToIntersection;
+	if (normal * crossProductResult < 0) return false;
 
-	return true; // this ray hits the triangle
+	return true;
 }
 
 Plane::Plane(Vector& a_PN, float a_D)
@@ -94,21 +97,21 @@ Plane::Plane(Vector& a_PN, float a_D)
 
 Plane::Plane(Vector& P0, Vector& P1, Vector& P2)
 {
-   float l;
+	float l;
 
-   //Calculate the normal plane: counter-clockwise vectorial product.
-   PN = (P1 - P0) % (P2 - P0);
+	//Calculate the normal plane: counter-clockwise vectorial product.
+	PN = (P1 - P0) % (P2 - P0);
 
-   if ((l = PN.length()) == 0.0)
-   {
-	   cerr << "DEGENERATED PLANE!\n";
-   }
-   else
-   {
-	   PN.normalize();
-	   //Calculate D
-	   D = -(PN * P0); // Could by any of the others
-   }
+	if ((l = PN.length()) == 0.0)
+	{
+		cerr << "DEGENERATED PLANE!\n";
+	}
+	else
+	{
+		PN.normalize();
+		//Calculate D
+		D = -(PN * P0); // Could by any of the others
+	}
 
 }
 
@@ -116,45 +119,40 @@ Plane::Plane(Vector& P0, Vector& P1, Vector& P2)
 // Ray/Plane intersection test.
 //
 
-bool Plane::intercepts( Ray& r, float& t )
+bool Plane::intercepts(Ray& r, float& t)
 {
 	r.direction.normalize();
+	float dotProductOfNormalAndDirection = PN * r.direction;
 
-	// A plane is defined by the equation: Ax + By + Cz + D = 0, or the vector [A B C D].
-	// A, B, and C, define the normal to the plane, Pn = [A B C].
-	// the distance from the origin [0 0 0] to the plane is D.
-
-	//printf("plane: %f %f %f\n", PN.x, PN.y, PN.y);
-	//printf("ray: %f %f %f\n", r.direction.x, r.direction.y, r.direction.y);
-	float vd = PN * r.direction;
-
-	//ray is parallel to plane
-	if (vd == 0)
+	// Check if plane and ray are parallel, if so return false
+	if (dotProductOfNormalAndDirection == 0)
 		return false;
 
-	float v0 = -(PN * r.origin + D);
+	float signedDistanceFromOriginToPlane = -(PN * r.origin + D);
 
-	t = v0 / vd;
+	// Calculate the scalar t along the ray where the intersection with the plane occurs.
+	t = signedDistanceFromOriginToPlane / dotProductOfNormalAndDirection;
 
-	//intersection cannot be behind the origin of the ray
+	// Returns false if plane is behind the ray, otherwise returns true
 	return t >= 0;
+
 }
 
-Vector Plane::getNormal(Vector point) 
+Vector Plane::getNormal(Vector point)
 {
-  return PN;
+	return PN;
 }
 
 
-bool Sphere::intercepts(Ray& r, float& t )
+bool Sphere::intercepts(Ray& r, float& t)
 {
-	//PUT HERE YOUR CODE
 	r.direction.normalize();
 
 	Vector oc = center - r.origin;
 	float b = r.direction * oc;
 	float c = oc.length() * oc.length() - SqRadius;
 
+	// Check if ray is outside of the sphere and if sphere is behind the ray, if so return false
 	if (c > 0 && b <= 0) {
 		return false;
 	}
@@ -164,13 +162,12 @@ bool Sphere::intercepts(Ray& r, float& t )
 		return false;
 	}
 
-	float sqrtDelta = sqrt(delta);
-	t = (c > 0 ? b - sqrtDelta : b + sqrtDelta);
-  return true;
+	t = (c > 0 ? b - sqrt(delta) : b + sqrt(delta));
+	return true;
 }
 
 
-Vector Sphere::getNormal( Vector point )
+Vector Sphere::getNormal(Vector point)
 {
 	Vector normal = point - center;
 	return (normal.normalize());
@@ -180,14 +177,13 @@ AABB Sphere::GetBoundingBox() {
 	Vector a_min;
 	Vector a_max;
 
-	//PUT HERE YOUR CODE
 	a_min.x = center.x - radius;
 	a_min.y = center.y - radius;
 	a_min.z = center.z - radius;
 
-	a_max.x = center.x - radius;
-	a_max.y = center.y - radius;
-	a_max.z = center.z - radius;
+	a_max.x = center.x + radius;
+	a_max.y = center.y + radius;
+	a_max.z = center.z + radius;
 
 	return(AABB(a_min, a_max));
 }
@@ -205,47 +201,45 @@ AABB aaBox::GetBoundingBox() {
 bool aaBox::intercepts(Ray& ray, float& t)
 {
 	ray.direction.normalize();
+	double ox = ray.origin.x; double oy = ray.origin.y; double oz = ray.origin.z;
+	double dx = ray.direction.x; double dy = ray.direction.y; double dz = ray.direction.z;
 
-	//tirado dos slides (?)
-	double tx_min = 0, ty_min = 0, tz_min = 0;
-	double tx_max = 0, ty_max = 0, tz_max = 0;
+	double tx_min, ty_min, tz_min;
+	double tx_max, ty_max, tz_max;
 
-	double a = 1.0 / ray.direction.x;
-
+	double a = 1.0 / dx;
 	if (a >= 0) {
-		tx_min = (min.x - ray.origin.x) * a;
-		tx_max = (max.x - ray.origin.x) * a;
+		tx_min = (min.x - ox) * a;
+		tx_max = (max.x - ox) * a;
 	}
 	else {
-		tx_min = (max.x - ray.origin.x) * a;
-		tx_max = (min.x - ray.origin.x) * a;
+		tx_min = (max.x - ox) * a;
+		tx_max = (min.x - ox) * a;
 	}
 
-	double b = 1.0 / ray.direction.y;
+	double b = 1.0 / dy;
 	if (b >= 0) {
-		ty_min = (min.y - ray.origin.y) * b;
-		ty_max = (max.y - ray.origin.y) * b;
+		ty_min = (min.y - oy) * b;
+		ty_max = (max.y - oy) * b;
 	}
 	else {
-		ty_min = (max.y - ray.origin.y) * b;
-		ty_max = (min.y - ray.origin.y) * b;
+		ty_min = (max.y - oy) * b;
+		ty_max = (min.y - oy) * b;
 	}
 
-	double c = 1.0 / ray.direction.z;
+	double c = 1.0 / dz;
 	if (c >= 0) {
-		tz_min = (min.z - ray.origin.z) * c;
-		tz_max = (max.z - ray.origin.z) * c;
+		tz_min = (min.z - oz) * c;
+		tz_max = (max.z - oz) * c;
 	}
 	else {
-		tz_min = (max.z - ray.origin.z) * c;
-		tz_max = (min.z - ray.origin.z) * c;
+		tz_min = (max.z - oz) * c;
+		tz_max = (min.z - oz) * c;
 	}
+	float tE, tL; // Entering and leaving t values
+	Vector face_in, face_out; // Normal vectors for the intersected faces
 
-
-	float tE, tL; //entering and leaving t values 
-	Vector face_in, face_out; // normals
-	// find largest tE, entering t value
-
+	// Find largest tE, entering t value
 	if (tx_min > ty_min) {
 		tE = tx_min;
 		face_in = (a >= 0.0) ? Vector(-1, 0, 0) : Vector(1, 0, 0);
@@ -260,8 +254,7 @@ bool aaBox::intercepts(Ray& ray, float& t)
 		face_in = (c >= 0.0) ? Vector(0, 0, -1) : Vector(0, 0, 1);
 	}
 
-
-	// find smallest tL, leaving t value
+	// Find smallest tL, leaving t value
 	if (tx_max < ty_max) {
 		tL = tx_max;
 		face_out = (a >= 0.0) ? Vector(1, 0, 0) : Vector(-1, 0, 0);
@@ -275,22 +268,23 @@ bool aaBox::intercepts(Ray& ray, float& t)
 		tL = tz_max;
 		face_out = (c >= 0.0) ? Vector(0, 0, 1) : Vector(0, 0, -1);
 	}
-	//printf("tE = %f, tL = %f\n", tE, tL);
 
-	if (tE < tL && tL > 0) { // condition for a hit
-		if (tE > 0) {
-			t = tE; // ray hits outside surface
+	// Check for a hit
+	if (tE <= tL && tL > 0) {
+		// Condition for a hit
+		if (tE >= 0) {
+			t = tE;  // Ray hits outside surface
 			Normal = face_in;
 		}
 		else {
-			t = tL; // ray hits inside surface
+			t = tL;  // Ray hits inside surface
 			Normal = face_out;
 		}
-
 		return true;
 	}
-
-	return false;
+	else {
+		return false;
+	}
 }
 
 Vector aaBox::getNormal(Vector point)
@@ -350,19 +344,19 @@ Light* Scene::getLight(unsigned int index)
 	return NULL;
 }
 
-void Scene::LoadSkybox(const char *sky_dir)
+void Scene::LoadSkybox(const char* sky_dir)
 {
-	char *filenames[6];
+	char* filenames[6];
 	char buffer[100];
-	const char *maps[] = { "/right.jpg", "/left.jpg", "/top.jpg", "/bottom.jpg", "/front.jpg", "/back.jpg" };
+	const char* maps[] = { "/right.jpg", "/left.jpg", "/top.jpg", "/bottom.jpg", "/front.jpg", "/back.jpg" };
 
 	for (int i = 0; i < 6; i++) {
 		strcpy_s(buffer, sizeof(buffer), sky_dir);
 		strcat_s(buffer, sizeof(buffer), maps[i]);
-		filenames[i] = (char *)malloc(sizeof(buffer));
+		filenames[i] = (char*)malloc(sizeof(buffer));
 		strcpy_s(filenames[i], sizeof(buffer), buffer);
 	}
-	
+
 	ILuint ImageName;
 
 	ilEnable(IL_ORIGIN_SET);
@@ -389,8 +383,8 @@ void Scene::LoadSkybox(const char *sky_dir)
 		ilConvertImage(format, IL_UNSIGNED_BYTE);
 
 		int size = ilGetInteger(IL_IMAGE_SIZE_OF_DATA);
-		skybox_img[i].img = (ILubyte *)malloc(size);
-		ILubyte *bytes = ilGetData();
+		skybox_img[i].img = (ILubyte*)malloc(size);
+		ILubyte* bytes = ilGetData();
 		memcpy(skybox_img[i].img, bytes, size);
 		skybox_img[i].resX = ilGetInteger(IL_IMAGE_WIDTH);
 		skybox_img[i].resY = ilGetInteger(IL_IMAGE_HEIGHT);
@@ -473,9 +467,9 @@ Color Scene::GetSkyboxColor(Ray& r) {
 	yp = int((height - 1) * t);
 	yp < 0 ? 0 : (yp > (height - 1) ? height - 1 : yp);
 
-	float red = u8tofloat(skybox_img[img_side].img[(yp*width + xp) * bytesperpixel]);
-	float green = u8tofloat(skybox_img[img_side].img[(yp*width + xp) * bytesperpixel + 1]);
-	float blue = u8tofloat(skybox_img[img_side].img[(yp*width + xp) * bytesperpixel + 2]);
+	float red = u8tofloat(skybox_img[img_side].img[(yp * width + xp) * bytesperpixel]);
+	float green = u8tofloat(skybox_img[img_side].img[(yp * width + xp) * bytesperpixel + 1]);
+	float blue = u8tofloat(skybox_img[img_side].img[(yp * width + xp) * bytesperpixel + 2]);
 
 	return(Color(red, green, blue));
 }
@@ -486,212 +480,212 @@ Color Scene::GetSkyboxColor(Ray& r) {
 ////////////////////////////////////////////////////////////////////////////////
 // P3F file parsing methods.
 //
-void next_token(ifstream& file, char *token, const char *name)
+void next_token(ifstream& file, char* token, const char* name)
 {
-  file >> token;
-  if (strcmp(token, name))
-    cerr << "'" << name << "' expected.\n";
+	file >> token;
+	if (strcmp(token, name))
+		cerr << "'" << name << "' expected.\n";
 }
 
-bool Scene::load_p3f(const char *name)
+bool Scene::load_p3f(const char* name)
 {
-  const	int	lineSize = 1024;
-  string	cmd;
-  char		token	[256];
-  ifstream	file(name, ios::in);
-  Material *	material;
+	const	int	lineSize = 1024;
+	string	cmd;
+	char		token[256];
+	ifstream	file(name, ios::in);
+	Material* material;
 
-  material = NULL;
+	material = NULL;
 
-  if (file >> cmd)
-  {
-    while (true)
-    {
-      if (cmd == "accel") {  //Acceleration data structure
-		unsigned int accel_type; // type of acceleration data structure
-		file >> accel_type;
-		this->SetAccelStruct((accelerator)accel_type);
-	  }
+	if (file >> cmd)
+	{
+		while (true)
+		{
+			if (cmd == "accel") {  //Acceleration data structure
+				unsigned int accel_type; // type of acceleration data structure
+				file >> accel_type;
+				this->SetAccelStruct((accelerator)accel_type);
+			}
 
-	  else if (cmd == "spp")    //samples per pixel
-	  {
-		  unsigned int spp; // number of samples per pixel 
+			else if (cmd == "spp")    //samples per pixel
+			{
+				unsigned int spp; // number of samples per pixel 
 
-		  file >> spp;
-		  this->SetSamplesPerPixel(spp);
-	  }
-	  else if (cmd == "f")   //Material
-      {
-	    double Kd, Ks, Shine, T, ior;
-	    Color cd, cs;
+				file >> spp;
+				this->SetSamplesPerPixel(spp);
+			}
+			else if (cmd == "f")   //Material
+			{
+				double Kd, Ks, Shine, T, ior;
+				Color cd, cs;
 
-	    file >> cd >> Kd >> cs >> Ks >> Shine >> T >> ior;
+				file >> cd >> Kd >> cs >> Ks >> Shine >> T >> ior;
 
-	    material = new Material(cd, Kd, cs, Ks, Shine, T, ior);
-      }
+				material = new Material(cd, Kd, cs, Ks, Shine, T, ior);
+			}
 
-      else if (cmd == "s")    //Sphere
-      {
-	     Vector center;
-    	 float radius;
-         Sphere* sphere;
+			else if (cmd == "s")    //Sphere
+			{
+				Vector center;
+				float radius;
+				Sphere* sphere;
 
-	    file >> center >> radius;
-        sphere = new Sphere(center,radius);
-	    if (material) sphere->SetMaterial(material);
-        this->addObject( (Object*) sphere);
-      }
+				file >> center >> radius;
+				sphere = new Sphere(center, radius);
+				if (material) sphere->SetMaterial(material);
+				this->addObject((Object*)sphere);
+			}
 
-	  else if (cmd == "box")    //axis aligned box
-	  {
-		  Vector minpoint, maxpoint;
-		  aaBox	*box;
+			else if (cmd == "box")    //axis aligned box
+			{
+				Vector minpoint, maxpoint;
+				aaBox* box;
 
-		  file >> minpoint >> maxpoint;
-		  box = new aaBox(minpoint, maxpoint);
-		  if (material) box->SetMaterial(material);
-		  this->addObject((Object*)box);
-	  }
-	  else if (cmd == "p")  // Polygon: just accepts triangles for now
-      {
-		  Vector P0, P1, P2;
-		  Triangle* triangle;
-		  unsigned total_vertices;
-		  
-		  file >> total_vertices;
-		  if (total_vertices == 3)
-		  {
-			  file >> P0 >> P1 >> P2;
-			  triangle = new Triangle(P0, P1, P2);
-			  if (material) triangle->SetMaterial(material);
-			  this->addObject( (Object*) triangle);
-		  }
-		  else
-		  {
-			  cerr << "Unsupported number of vertices.\n";
-			  break;
-		  }
-      }
-      
-	  else if (cmd == "mesh") {
-		  unsigned total_vertices, total_faces;
-		  unsigned P0, P1, P2;
-		  Triangle* triangle;
-		  Vector* verticesArray, vertex;
+				file >> minpoint >> maxpoint;
+				box = new aaBox(minpoint, maxpoint);
+				if (material) box->SetMaterial(material);
+				this->addObject((Object*)box);
+			}
+			else if (cmd == "p")  // Polygon: just accepts triangles for now
+			{
+				Vector P0, P1, P2;
+				Triangle* triangle;
+				unsigned total_vertices;
 
-		  file >> total_vertices >> total_faces;
-		  verticesArray = (Vector*)malloc(total_vertices * sizeof(Vector));
-		  for (int i = 0; i < total_vertices; i++) {
-			  file >> vertex;
-			  verticesArray[i] = vertex;
-		  }
-		  for (int i = 0; i < total_faces; i++) {
-			  file >> P0 >> P1 >> P2;
-			  if (P0 > 0) {
-				  P0 -= 1;
-				  P1 -= 1;
-				  P2 -= 1;
-			  }
-			  else {
-				  P0 += total_vertices;
-				  P1 += total_vertices;
-				  P2 += total_vertices;
-			  }
-			  triangle = new Triangle(verticesArray[P0], verticesArray[P1], verticesArray[P2]); //vertex index start at 1
-			  if (material) triangle->SetMaterial(material);
-			  this->addObject((Object*)triangle);
-		  }
+				file >> total_vertices;
+				if (total_vertices == 3)
+				{
+					file >> P0 >> P1 >> P2;
+					triangle = new Triangle(P0, P1, P2);
+					if (material) triangle->SetMaterial(material);
+					this->addObject((Object*)triangle);
+				}
+				else
+				{
+					cerr << "Unsupported number of vertices.\n";
+					break;
+				}
+			}
 
-	  }
+			else if (cmd == "mesh") {
+				unsigned total_vertices, total_faces;
+				unsigned P0, P1, P2;
+				Triangle* triangle;
+				Vector* verticesArray, vertex;
 
-	  else if (cmd == "pl")  // General Plane
-	  {
-          Vector P0, P1, P2;
-		  Plane* plane;
+				file >> total_vertices >> total_faces;
+				verticesArray = (Vector*)malloc(total_vertices * sizeof(Vector));
+				for (int i = 0; i < total_vertices; i++) {
+					file >> vertex;
+					verticesArray[i] = vertex;
+				}
+				for (int i = 0; i < total_faces; i++) {
+					file >> P0 >> P1 >> P2;
+					if (P0 > 0) {
+						P0 -= 1;
+						P1 -= 1;
+						P2 -= 1;
+					}
+					else {
+						P0 += total_vertices;
+						P1 += total_vertices;
+						P2 += total_vertices;
+					}
+					triangle = new Triangle(verticesArray[P0], verticesArray[P1], verticesArray[P2]); //vertex index start at 1
+					if (material) triangle->SetMaterial(material);
+					this->addObject((Object*)triangle);
+				}
 
-          file >> P0 >> P1 >> P2;
-          plane = new Plane(P0, P1, P2);
-	      if (material) plane->SetMaterial(material);
-          this->addObject( (Object*) plane);
-	  }
+			}
 
-      else if (cmd == "l")  // Need to check light color since by default is white
-      {
-	    Vector pos;
-        Color color;
+			else if (cmd == "pl")  // General Plane
+			{
+				Vector P0, P1, P2;
+				Plane* plane;
 
-	    file >> pos >> color;
-	    
-	      this->addLight(new Light(pos, color));
-	    
-      }
-      else if (cmd == "v")
-      {
-	    Vector up, from, at;
-	    float fov, hither;
-	    int xres, yres;
-        Camera* camera;
-		float focal_ratio; //ratio beteween the focal distance and the viewplane distance
-		float aperture_ratio; // number of times to be multiplied by the size of a pixel
+				file >> P0 >> P1 >> P2;
+				plane = new Plane(P0, P1, P2);
+				if (material) plane->SetMaterial(material);
+				this->addObject((Object*)plane);
+			}
 
-	    next_token (file, token, "from");
-	    file >> from;
+			else if (cmd == "l")  // Need to check light color since by default is white
+			{
+				Vector pos;
+				Color color;
 
-	    next_token (file, token, "at");
-	    file >> at;
+				file >> pos >> color;
 
-	    next_token (file, token, "up");
-	    file >> up;
+				this->addLight(new Light(pos, color));
 
-	    next_token (file, token, "angle");
-	    file >> fov;
+			}
+			else if (cmd == "v")
+			{
+				Vector up, from, at;
+				float fov, hither;
+				int xres, yres;
+				Camera* camera;
+				float focal_ratio; //ratio beteween the focal distance and the viewplane distance
+				float aperture_ratio; // number of times to be multiplied by the size of a pixel
 
-	    next_token (file, token, "hither");
-	    file >> hither;
+				next_token(file, token, "from");
+				file >> from;
 
-	    next_token (file, token, "resolution");
-	    file >> xres >> yres;
+				next_token(file, token, "at");
+				file >> at;
 
-		next_token(file, token, "aperture");
-		file >> aperture_ratio;
+				next_token(file, token, "up");
+				file >> up;
 
-		next_token(file, token, "focal");
-		file >> focal_ratio;
-	    // Create Camera
-		camera = new Camera( from, at, up, fov, hither, 100.0*hither, xres, yres, aperture_ratio, focal_ratio);
-        this->SetCamera(camera);
-      }
+				next_token(file, token, "angle");
+				file >> fov;
 
-      else if (cmd == "bclr")   //Background color
-      {
-		Color bgcolor;
-		file >> bgcolor;
-		this->SetBackgroundColor(bgcolor);
-	  }
-	
-	  else if (cmd == "env")
-	  {
-		  file >> token;
-		  
-		  this->LoadSkybox(token);
-		  this->SetSkyBoxFlg(true);
-	  }
-      else if (cmd[0] == '#')
-      {
-	    file.ignore (lineSize, '\n');
-      }
-      else
-      {
-	    cerr << "unknown command '" << cmd << "'.\n";
-	    break;
-      }
-      if (!(file >> cmd))
-        break;
-    }
-  }
+				next_token(file, token, "hither");
+				file >> hither;
 
-  file.close();
-  return true;
+				next_token(file, token, "resolution");
+				file >> xres >> yres;
+
+				next_token(file, token, "aperture");
+				file >> aperture_ratio;
+
+				next_token(file, token, "focal");
+				file >> focal_ratio;
+				// Create Camera
+				camera = new Camera(from, at, up, fov, hither, 100.0 * hither, xres, yres, aperture_ratio, focal_ratio);
+				this->SetCamera(camera);
+			}
+
+			else if (cmd == "bclr")   //Background color
+			{
+				Color bgcolor;
+				file >> bgcolor;
+				this->SetBackgroundColor(bgcolor);
+			}
+
+			else if (cmd == "env")
+			{
+				file >> token;
+
+				this->LoadSkybox(token);
+				this->SetSkyBoxFlg(true);
+			}
+			else if (cmd[0] == '#')
+			{
+				file.ignore(lineSize, '\n');
+			}
+			else
+			{
+				cerr << "unknown command '" << cmd << "'.\n";
+				break;
+			}
+			if (!(file >> cmd))
+				break;
+		}
+	}
+
+	file.close();
+	return true;
 };
 
 void Scene::create_random_scene() {
@@ -708,7 +702,7 @@ void Scene::create_random_scene() {
 	//this->SetSkyBoxFlg(true);
 	this->SetAccelStruct(BVH_ACC);
 	this->SetSamplesPerPixel(0);
-	
+
 	camera = new Camera(Vector(-5.312192, 4.456562, 11.963158), Vector(0.0, 0.0, 0), Vector(0.0, 1.0, 0.0), 45.0, 0.01, 10000.0, 800, 600, 0, 1.5f);
 	this->SetCamera(camera);
 

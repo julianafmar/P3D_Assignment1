@@ -56,7 +56,6 @@ void BVH::sort(int left_index, int right_index) {
 }
 
 void BVH::build_recursive(int left_index, int right_index, BVHNode* node) {
-	//PUT YOUR CODE HERE
 	if ((right_index - left_index) <= Threshold) {
 		// Initiate current node as a leaf with primitives from objects[left_index] to objects[right_index]
 		node->makeLeaf(left_index, right_index - left_index);
@@ -117,7 +116,7 @@ void BVH::build_recursive(int left_index, int right_index, BVHNode* node) {
 	if (split_index == left_index || split_index == right_index - 1) {
 		split_index = (left_index + right_index) / 2;
 
-	} 
+	}
 
 	AABB left = AABB(Vector(FLT_MAX, FLT_MAX, FLT_MAX), Vector(-FLT_MAX, -FLT_MAX, -FLT_MAX));
 	AABB right = AABB(Vector(FLT_MAX, FLT_MAX, FLT_MAX), Vector(-FLT_MAX, -FLT_MAX, -FLT_MAX));
@@ -179,14 +178,11 @@ bool BVH::Traverse(Ray& ray, Object** hit_obj, Vector& hit_point) {
 			bool inter_left = childLeft->getAABB().intercepts(ray, t_left);
 			bool inter_right = childRight->getAABB().intercepts(ray, t_right);
 
-			// verificação
-			if (childLeft->getAABB().isInside(ray.origin)) t_left = 0;
-			if (childRight->getAABB().isInside(ray.origin)) t_right = 0;
 
 			StackItem* item = nullptr;
 
 			if (inter_left && inter_right) {
-				
+
 				if (t_left > t_right) {
 					currentNode = childRight;
 					item = new StackItem(childLeft, t_left);
@@ -194,7 +190,7 @@ bool BVH::Traverse(Ray& ray, Object** hit_obj, Vector& hit_point) {
 				else {
 					currentNode = childLeft;
 					item = new StackItem(childRight, t_right);
-			
+
 				}
 				hit_stack.push(*item);
 				continue;
@@ -202,12 +198,12 @@ bool BVH::Traverse(Ray& ray, Object** hit_obj, Vector& hit_point) {
 
 			}
 			else if (inter_left) {
-		
+
 				currentNode = childLeft;
 				continue;
 			}
 			else if (inter_right) {
-			
+
 				currentNode = childRight;
 				continue;
 			}
@@ -222,7 +218,7 @@ bool BVH::Traverse(Ray& ray, Object** hit_obj, Vector& hit_point) {
 				}
 			}
 		}
- 
+
 		bool end = false;
 		for (;;) {
 			if (hit_stack.empty()) {
@@ -246,7 +242,6 @@ bool BVH::Traverse(Ray& ray, Object** hit_obj, Vector& hit_point) {
 
 	hit_point = ray.origin + ray.direction * tmin;
 	return true;
-	//PUT YOUR CODE HERE
 }
 
 bool BVH::Traverse(Ray& ray) {  //shadow ray with length
@@ -255,12 +250,11 @@ bool BVH::Traverse(Ray& ray) {  //shadow ray with length
 	double length = ray.direction.length(); //distance between light and intersection point
 	ray.direction.normalize();
 
-	//PUT YOUR CODE HERE
 	BVHNode* currentNode = nodes[0];
 
 	if (!currentNode->getAABB().intercepts(ray, tmp)) return false;
 
-	for(;;) {
+	for (;;) {
 		if (!currentNode->isLeaf()) {
 			float t_right = FLT_MAX, t_left = FLT_MAX;
 
@@ -273,7 +267,7 @@ bool BVH::Traverse(Ray& ray) {  //shadow ray with length
 			StackItem* item = nullptr;
 
 			if (inter_left && inter_right) {
-		
+
 				currentNode = childLeft;
 				item = new StackItem(childRight, t_right);
 				hit_stack.push(*item);
@@ -281,13 +275,13 @@ bool BVH::Traverse(Ray& ray) {  //shadow ray with length
 
 			}
 			else if (inter_left) {
-	
+
 				currentNode = childLeft;
 				continue;
 
 			}
 			else if (inter_right) {
-		
+
 				currentNode = childRight;
 				continue;
 			}
@@ -310,6 +304,6 @@ bool BVH::Traverse(Ray& ray) {  //shadow ray with length
 			currentNode = item.ptr;
 		}
 
-		
+
 	}
 }

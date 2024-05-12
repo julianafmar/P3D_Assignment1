@@ -1,4 +1,4 @@
- ///////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////
 //
 // P3D Course
 // (c) 2021 by João Madeiras Pereira
@@ -27,7 +27,7 @@
 //Enable OpenGL drawing.  
 bool drawModeEnabled = false;
 
-bool P3F_scene = true; //choose between P3F scene or a built-in random scene
+bool P3F_scene = false; //choose between P3F scene or a built-in random scene
 
 #define MAX_DEPTH 4  //number of bounces
 
@@ -56,13 +56,13 @@ char s[32];
 
 
 // Points defined by 2 attributes: positions which are stored in vertices array and colors which are stored in colors array
-float *colors;
-float *vertices;
+float* colors;
+float* vertices;
 int size_vertices;
 int size_colors;
 
 //Array of Pixels to be stored in a file by using DevIL library
-uint8_t *img_Data;
+uint8_t* img_Data;
 
 GLfloat m[16];  //projection matrix initialized by ortho function
 
@@ -89,7 +89,7 @@ Color rayTracing(Ray ray, int depth, float ior_1);
 bool isOpenGLError() {
 	bool isError = false;
 	GLenum errCode;
-	const GLubyte *errString;
+	const GLubyte* errString;
 	while ((errCode = glGetError()) != GL_NO_ERROR) {
 		isError = true;
 		errString = gluErrorString(errCode);
@@ -100,7 +100,7 @@ bool isOpenGLError() {
 
 void checkOpenGLError(std::string error)
 {
-	if(isOpenGLError()) {
+	if (isOpenGLError()) {
 		std::cerr << error << std::endl;
 		exit(EXIT_FAILURE);
 	}
@@ -155,7 +155,7 @@ void createShaderProgram()
 
 	glBindAttribLocation(ProgramId, VERTEX_COORD_ATTRIB, "in_Position");
 	glBindAttribLocation(ProgramId, COLOR_ATTRIB, "in_Color");
-	
+
 	glLinkProgram(ProgramId);
 	UniformId = glGetUniformLocation(ProgramId, "Matrix");
 
@@ -189,17 +189,17 @@ void createBufferObjects()
 	glBufferData(GL_ARRAY_BUFFER, size_vertices, NULL, GL_DYNAMIC_DRAW);
 	glEnableVertexAttribArray(VERTEX_COORD_ATTRIB);
 	glVertexAttribPointer(VERTEX_COORD_ATTRIB, 2, GL_FLOAT, 0, 0, 0);
-	
+
 	glBindBuffer(GL_ARRAY_BUFFER, VboId[1]);
 	glBufferData(GL_ARRAY_BUFFER, size_colors, NULL, GL_DYNAMIC_DRAW);
 	glEnableVertexAttribArray(COLOR_ATTRIB);
 	glVertexAttribPointer(COLOR_ATTRIB, 3, GL_FLOAT, 0, 0, 0);
-	
-// unbind the VAO
+
+	// unbind the VAO
 	glBindVertexArray(0);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-//	glDisableVertexAttribArray(VERTEX_COORD_ATTRIB); 
-//	glDisableVertexAttribArray(COLOR_ATTRIB);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	//	glDisableVertexAttribArray(VERTEX_COORD_ATTRIB); 
+	//	glDisableVertexAttribArray(COLOR_ATTRIB);
 	checkOpenGLError("ERROR: Could not create VAOs and VBOs.");
 }
 
@@ -207,7 +207,7 @@ void destroyBufferObjects()
 {
 	glDisableVertexAttribArray(VERTEX_COORD_ATTRIB);
 	glDisableVertexAttribArray(COLOR_ATTRIB);
-	
+
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindVertexArray(0);
 
@@ -230,7 +230,7 @@ void drawPoints()
 	glBufferSubData(GL_ARRAY_BUFFER, 0, size_colors, colors);
 
 	glUniformMatrix4fv(UniformId, 1, GL_FALSE, m);
-	glDrawArrays(GL_POINTS, 0, RES_X*RES_Y);
+	glDrawArrays(GL_POINTS, 0, RES_X * RES_Y);
 	glFinish();
 
 	glUseProgram(0);
@@ -240,7 +240,7 @@ void drawPoints()
 	checkOpenGLError("ERROR: Could not draw scene.");
 }
 
-ILuint saveImgFile(const char *filename) {
+ILuint saveImgFile(const char* filename) {
 	ILuint ImageId;
 
 	ilEnable(IL_FILE_OVERWRITE);
@@ -278,8 +278,8 @@ void cleanup()
 	destroyBufferObjects();
 }
 
-void ortho(float left, float right, float bottom, float top, 
-			float nearp, float farp)
+void ortho(float left, float right, float bottom, float top,
+	float nearp, float farp)
 {
 	m[0 * 4 + 0] = 2 / (right - left);
 	m[0 * 4 + 1] = 0.0;
@@ -301,7 +301,7 @@ void ortho(float left, float right, float bottom, float top,
 
 void reshape(int w, int h)
 {
-    glClear(GL_COLOR_BUFFER_BIT);
+	glClear(GL_COLOR_BUFFER_BIT);
 	glViewport(0, 0, w, h);
 	ortho(0, (float)RES_X, 0, (float)RES_Y, -1.0, 1.0);
 }
@@ -310,23 +310,23 @@ void processKeys(unsigned char key, int xx, int yy)
 {
 	switch (key) {
 
-		case 27:
-			glutLeaveMainLoop();
-			break;
+	case 27:
+		glutLeaveMainLoop();
+		break;
 
-		case 'r':
-			camX = Eye.x;
-			camY = Eye.y;
-			camZ = Eye.z;
-			r = Eye.length();
-			beta = asinf(camY / r) * 180.0f / 3.14f;
-			alpha = atanf(camX / camZ) * 180.0f / 3.14f;
-			break;
+	case 'r':
+		camX = Eye.x;
+		camY = Eye.y;
+		camZ = Eye.z;
+		r = Eye.length();
+		beta = asinf(camY / r) * 180.0f / 3.14f;
+		alpha = atanf(camX / camZ) * 180.0f / 3.14f;
+		break;
 
-		case 'c':
-			printf("Camera Spherical Coordinates (%f, %f, %f)\n", r, beta, alpha);
-			printf("Camera Cartesian Coordinates (%f, %f, %f)\n", camX, camY, camZ);
-			break;
+	case 'c':
+		printf("Camera Spherical Coordinates (%f, %f, %f)\n", r, beta, alpha);
+		printf("Camera Cartesian Coordinates (%f, %f, %f)\n", camX, camY, camZ);
+		break;
 	}
 }
 
@@ -417,34 +417,34 @@ void mouseWheel(int wheel, int direction, int x, int y) {
 
 void setupGLEW() {
 	glewExperimental = GL_TRUE;
-	GLenum result = glewInit() ; 
-	if (result != GLEW_OK) { 
+	GLenum result = glewInit();
+	if (result != GLEW_OK) {
 		std::cerr << "ERROR glewInit: " << glewGetString(result) << std::endl;
 		exit(EXIT_FAILURE);
-	} 
+	}
 	GLenum err_code = glGetError();
-	printf ("Vendor: %s\n", glGetString (GL_VENDOR));
-	printf ("Renderer: %s\n", glGetString (GL_RENDERER));
-	printf ("Version: %s\n", glGetString (GL_VERSION));
-	printf ("GLSL: %s\n", glGetString (GL_SHADING_LANGUAGE_VERSION));
+	printf("Vendor: %s\n", glGetString(GL_VENDOR));
+	printf("Renderer: %s\n", glGetString(GL_RENDERER));
+	printf("Version: %s\n", glGetString(GL_VERSION));
+	printf("GLSL: %s\n", glGetString(GL_SHADING_LANGUAGE_VERSION));
 }
 
 void setupGLUT(int argc, char* argv[])
 {
 	glutInit(&argc, argv);
-	
+
 	glutInitContextVersion(4, 3);
 	glutInitContextFlags(GLUT_FORWARD_COMPATIBLE);
 	glutInitContextProfile(GLUT_CORE_PROFILE);
 
-	glutSetOption(GLUT_ACTION_ON_WINDOW_CLOSE,GLUT_ACTION_GLUTMAINLOOP_RETURNS);
-	
+	glutSetOption(GLUT_ACTION_ON_WINDOW_CLOSE, GLUT_ACTION_GLUTMAINLOOP_RETURNS);
+
 	glutInitWindowPosition(100, 250);
 	glutInitWindowSize(RES_X, RES_Y);
 	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA);
 	glDisable(GL_DEPTH_TEST);
 	WindowHandle = glutCreateWindow(CAPTION);
-	if(WindowHandle < 1) {
+	if (WindowHandle < 1) {
 		std::cerr << "ERROR: Could not create a new rendering window." << std::endl;
 		exit(EXIT_FAILURE);
 	}
@@ -454,18 +454,11 @@ void setupGLUT(int argc, char* argv[])
 /////////////////////////////////////////////////////YOUR CODE HERE///////////////////////////////////////////////////////////////////////////////////////
 
 Vector rand_in_unit_sphere() {
-
 	float x = (float)rand() / RAND_MAX;
 	float y = (float)rand() / RAND_MAX;
 	float z = (float)rand() / RAND_MAX;
 	return Vector(x, y, z);
 }
-
-// Se encontrarmos algo para substituir isto, mudar na função getRefraction
-/*float getVectorNorm(Vector vector) {
-	return sqrt(vector.x**2 + vector.y**2 + vector.z**2);
-}*/
-
 
 Color getRefraction(Vector hitPoint, Vector normalVec, Vector tangentVec, float sin2, float cos2, Material* material, int depth, float ior_2, float kr) {
 	// Calculates starting point of rt
@@ -475,30 +468,17 @@ Color getRefraction(Vector hitPoint, Vector normalVec, Vector tangentVec, float 
 	Vector refrRayDir = tangentVec * sin2 - normalVec * cos2;
 	Ray rt(refrHitPoint, refrRayDir); // the refrated ray 
 
-
 	// Ver a normal, ela pode ser a errada 
 	Color refrColor = rayTracing(rt, depth + 1, ior_2);
-	return refrColor /* (1 - kr)*/; // algo de errado aqui
+	return refrColor * (1 - kr); 
 }
 
 Color getReflection(Vector normalVec, float cos, Vector revRayDir, Vector hitPoint, Material* material, int depth, float ior_1) {
-	
 	// 0.3 is roughness
-	Vector reflRayDir = normalVec * cos * 2 - revRayDir + rand_in_unit_sphere() * 0.0;
+	Vector reflRayDir = normalVec * cos * 2 - revRayDir + rand_in_unit_sphere() * 0.3;
 
 	reflRayDir.normalize();
 	float reflection = material->GetReflection();
-	Color color;
-
-	if (reflection > 0) {
-		Vector modReflRayDir;
-	
-		Ray reflRay(hitPoint, reflRayDir);
-		Color reflColor = rayTracing(reflRay, depth + 1, ior_1);
-		color += material->GetSpecColor() * reflColor * material->GetReflection();
-
-		return color * (1.0);
-	}
 
 	Ray reflRay(hitPoint, reflRayDir);
 
@@ -508,11 +488,11 @@ Color getReflection(Vector normalVec, float cos, Vector revRayDir, Vector hitPoi
 }
 
 Color getDiffuse(Ray shadowRay, Material* material, Vector hitRayDir, Vector normalVec, Vector lightDir, Color lightColour, float lightDotProduct) {
-	
+
 	Color color = Color();
 	bool shadow = false;
 	float hitDist;
-	
+
 	if (Accel_Struct == GRID_ACC) {
 		shadow = grid_ptr->Traverse(shadowRay);
 	}
@@ -530,16 +510,14 @@ Color getDiffuse(Ray shadowRay, Material* material, Vector hitRayDir, Vector nor
 			}
 		}
 	}
-	
 
 	if (shadow)
 		return color;
 
 	Color diffuse_colour = material->GetDiffColor() * material->GetDiffuse() * lightDotProduct;
 
-	// n sei se para as soft shadows basta multiplicar isto por lightDir + normalVec
-	float normalDotProd = lightDir * normalVec /* * (lightDir * normalVec)*/;
-
+	
+	float normalDotProd = lightDir * normalVec;
 
 	// Blinn approximation 
 	float halfwayProduct = ((lightDir + hitRayDir).normalize()) * normalVec;
@@ -552,16 +530,15 @@ Color getDiffuse(Ray shadowRay, Material* material, Vector hitRayDir, Vector nor
 	return color += lightColour * (diffuse_colour + specularColor);
 }
 
+Color rayTracing(Ray ray, int depth, float ior_1) {
 
-Color rayTracing(Ray ray, int depth, float ior_1)  {
-
-	bool useImage = scene->GetSkyBoxFlg();
+	bool useImage = scene->GetSkyBoxFlg(); // check if the background image is enabled
 	Color color = Color();
 
 	float hitDist, shortDist = INFINITY;
 
-	Object* closestObj = nullptr;
-	Vector hitPoint, light_point;
+	Object* closestObj = nullptr; // the closest object that the ray intercepts
+	Vector hitPoint;
 	bool hit = false;
 
 	int objects = scene->getNumObjects();
@@ -569,7 +546,7 @@ Color rayTracing(Ray ray, int depth, float ior_1)  {
 	if (Accel_Struct == GRID_ACC) {
 
 		hit = grid_ptr->Traverse(ray, &closestObj, hitPoint);
-		
+
 	}
 
 	else if (Accel_Struct == BVH_ACC) {
@@ -578,7 +555,7 @@ Color rayTracing(Ray ray, int depth, float ior_1)  {
 	}
 
 	else {
-		for (int i = 0; i < objects; i++) {
+		for (int i = 0; i < objects; i++) { // finding the closest object that the ray intersects
 			Object* obj = scene->getObject(i);
 
 			if (obj->intercepts(ray, hitDist) && hitDist < shortDist) {
@@ -591,19 +568,18 @@ Color rayTracing(Ray ray, int depth, float ior_1)  {
 		hitPoint = ray.origin + ray.direction * shortDist;
 	}
 
-	if (!hit || closestObj == nullptr) {
+	if (!hit || closestObj == nullptr) { // There was no intersection, so return the backgroud color
 		if (useImage) { return scene->GetSkyboxColor(ray); }
 		return scene->GetBackgroundColor();
 	}
 
-	Vector revRayDir = ray.direction * (-1);
+	Vector revRayDir = ray.direction * (-1); // reflected ray direction (90 deg)
 	Vector normalVec = closestObj->getNormal(hitPoint);
-
-	//revRayDir* normalVec > 0 ? normalVec : normalVec * (-1);
 
 	Material* material = closestObj->GetMaterial();
 	float ior_2 = material->GetRefrIndex();
 
+	// check refraction indexes
 	if (revRayDir * normalVec > 0) {
 		normalVec = normalVec;
 		ior_1 = 1;
@@ -613,47 +589,41 @@ Color rayTracing(Ray ray, int depth, float ior_1)  {
 		ior_2 = 1;
 	}
 
-	Vector reflectPoint = hitPoint + normalVec * EPSILON;
+	Vector reflectPoint = hitPoint + normalVec * EPSILON; // offset to avoid inside error
 
 	int ligths = scene->getNumLights();
 	for (int i = 0; i < ligths; i++) {
 		Light* light = scene->getLight(i);
 		Vector lightDir;
 
-		lightDir = (light->position - hitPoint).normalize();
+		lightDir = (light->position - hitPoint); // direction of the hitpoint to each light
 
 
-		float lightDotProduct = (lightDir/lightDir.length()) * normalVec;
-		
+		float lightDotProduct = (lightDir / lightDir.length()) * normalVec;
+
 		if (lightDotProduct <= 0) {
 			continue;
 		}
 
 		Ray shadowRay(reflectPoint, lightDir);
-		color += getDiffuse(shadowRay, material, revRayDir, normalVec, lightDir, light->color, lightDotProduct);
+		color += getDiffuse(shadowRay, material, revRayDir, normalVec, lightDir, light->color*0.6, lightDotProduct);
 	}
 
 	if (depth >= MAX_DEPTH || (material->GetTransmittance() == 0 && material->GetReflection() == 0))
 		return color;
-	
+
 	// Reflection
 	float cos1 = normalVec * revRayDir;
 	if (material->GetTransmittance() == 0) {
 		return color + getReflection(normalVec, cos1, revRayDir, reflectPoint, material, depth, ior_1);
 	}
-	
+
 	// Dialectric
 	Vector tangentVec = normalVec * cos1 - revRayDir;
 	float sin1 = tangentVec.length();
 	tangentVec.normalize();
 
-
 	float sin2 = (sin1 * ior_1) / ior_2; // Snell Law
-
-	// there can be a total reflection if sin2 > 1
-	//Total Reflection
-	//if (sin2 > 1)
-	//	return color + getReflection(normalVec, cos1, revRayDir, reflectPoint, material, depth, ior_1);
 
 	float cos2 = sqrt(1 - pow(sin2, 2));
 
@@ -711,26 +681,24 @@ void renderScene()
 	}
 
 	bool dof = false;
-	if (aperture > 0) {
-		dof = true;
-	}
+	if (aperture > 0) dof = true;
 
 	for (int y = 0; y < RES_Y; y++)
 	{
 		for (int x = 0; x < RES_X; x++)
 		{
 			Color color;
-			
-			if (dof) { // has dof
-				
-				int dofValue;
 
-				if (!antiAliasing) {
+			if (dof) { // has depth of field
+
+				int dofValue; // value to modify the pixel according to antiAliasing
+
+				if (!antiAliasing) { 
 					dofValue = 2;
 
+					// pixel coordinates are set in the middle of the pixel
 					pixel.x = x + 0.5f;
 					pixel.y = y + 0.5f;
-
 				}
 				else {
 					dofValue = sqrtN;
@@ -745,17 +713,14 @@ void renderScene()
 							pixel.x = x + random(p, p + 1) / dofValue;
 							pixel.y = y + random(p, p + 1) / dofValue;
 						}
-
+						
 						Ray ray = scene->GetCamera()->PrimaryRay(lensSample, pixel);
 						color += rayTracing(ray, 1, 1.0);
-
 					}
 				}
 				color = color * (1 / pow(dofValue, 2));
-
-
 			}
-			else { // has no dof
+			else { // has no depth of field
 
 				if (!antiAliasing) {
 
@@ -781,14 +746,7 @@ void renderScene()
 					}
 					color = color * (1 / pow(sqrtN, 2));
 				}
-
 			}
-			
-
-
-
-
-			//color = scene->GetBackgroundColor(); //TO CHANGE - just for the template
 
 			img_Data[counter++] = u8fromfloat((float)color.r());
 			img_Data[counter++] = u8fromfloat((float)color.g());
@@ -895,7 +853,7 @@ void init_scene(void)
 	printf("\nResolutionX = %d  ResolutionY= %d.\n", RES_X, RES_Y);
 
 	// Pixel buffer to be used in the Save Image function
-	img_Data = (uint8_t*)malloc(3 * RES_X*RES_Y * sizeof(uint8_t));
+	img_Data = (uint8_t*)malloc(3 * RES_X * RES_Y * sizeof(uint8_t));
 	if (img_Data == NULL) exit(1);
 
 	Accel_Struct = scene->GetAccelStruct();   //Type of acceleration data structure
@@ -943,7 +901,7 @@ int main(int argc, char* argv[])
 	}
 	ilInit();
 
-	int 
+	int
 		ch;
 	if (!drawModeEnabled) {
 
@@ -960,14 +918,14 @@ int main(int argc, char* argv[])
 			delete(scene);
 			free(img_Data);
 			ch = _getch();
-		} while((toupper(ch) == 'Y')) ;
+		} while ((toupper(ch) == 'Y'));
 	}
 
 	else {   //Use OpenGL to draw image in the screen
 		printf("OPENGL DRAWING MODE\n\n");
 		init_scene();
-		size_vertices = 2 * RES_X*RES_Y * sizeof(float);
-		size_colors = 3 * RES_X*RES_Y * sizeof(float);
+		size_vertices = 2 * RES_X * RES_Y * sizeof(float);
+		size_colors = 3 * RES_X * RES_Y * sizeof(float);
 		vertices = (float*)malloc(size_vertices);
 		if (vertices == NULL) exit(1);
 		colors = (float*)malloc(size_colors);
