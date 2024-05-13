@@ -180,7 +180,7 @@ vec3 directlighting(pointLight pl, Ray r, HitRecord rec){
         return vec3(0.0);
 
     // Diffuse component with Lambert's cosine law
-    diffCol = max(dot(rec.normal, lightDir), 0.0) * rec.material.albedo / pi;
+    diffCol = max(dot(rec.normal, lightDir), 0.0) * rec.material.albedo;
 
     // Specular component
     shininess = 4.0/(pow(rec.material.roughness, 4.0) + epsilon) - 2.0;

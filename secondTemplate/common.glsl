@@ -135,7 +135,7 @@ Camera createCamera(
 Ray getRay(Camera cam, vec2 pixel_sample) //rnd pixel_sample viewport coordinates
 {
     vec2 ls = cam.lensRadius * randomInUnitDisk(gSeed); //ls - lens sample for DOF
-    float time = cam.time0 + hash1(gSeed) * (cam.time1 - cam.time0);
+    float time = cam.time0 + hash1(gSeed) * (cam.time1 - cam.time0); // Motion blur
     
     vec3 eyeOffset = cam.eye + cam.u * ls.x + cam.v * ls.y;
 
@@ -235,7 +235,7 @@ bool scatter(Ray rIn, HitRecord rec, out vec3 atten, out Ray rScattered) {
 
     if (rec.material.type == MT_METAL) { // Metal reflection
         vec3 reflected = reflect(normalize(rIn.d), reflectNormal);
-        rScattered = createRay(rec.pos, reflected + rec.material.roughness * randomInUnitSphere(gSeed));
+        rScattered = createRay(rec.pos, reflected + rec.material.roughness * randomUnitVector(gSeed));
         atten = rec.material.specColor;
         return dot(rScattered.d, rec.normal) > 0.0;  
     }
@@ -252,6 +252,7 @@ bool scatter(Ray rIn, HitRecord rec, out vec3 atten, out Ray rScattered) {
             niOverNt = rec.material.refIdx;
             cosine = rec.material.refIdx * dot(rIn.d, rec.normal) / length(rIn.d);
             cosine = sqrt(1.0 - rec.material.refIdx * rec.material.refIdx * (1.0 - cosine * cosine));
+            atten = exp(-rec.material.refractColor * rec.t); // Beer's law
         } else { // hit from outside
             outwardNormal = rec.normal;
             niOverNt = 1.0 / rec.material.refIdx;
