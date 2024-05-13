@@ -70,6 +70,8 @@ void BVH::build_recursive(int left_index, int right_index, BVHNode* node) {
 	float y = globalBoundBox.max.y - globalBoundBox.min.y;
 	float z = globalBoundBox.max.z - globalBoundBox.min.z;
 
+	// Find the axis with the maximum length
+
 	if (x >= y) {
 		mid = x;
 		maxAxis = 0;
@@ -89,22 +91,6 @@ void BVH::build_recursive(int left_index, int right_index, BVHNode* node) {
 
 
 	sort(left_index, right_index);
-
-	/*
-	if (objects.at(left_index)->getCentroid().getAxisValue(maxAxis) > mid ||
-		objects.at(right_index - 1)->getCentroid().getAxisValue(maxAxis) <= mid) {
-		split_index = (left_index + right_index) / 2;
-	}
-
-	else {
-		// Find split index
-		for (split_index = left_index; split_index < right_index; split_index++) {
-			if (objects.at(split_index)->getCentroid().getAxisValue(maxAxis) > mid) {
-				break;
-			}
-		}
-	}
-	*/
 
 	for (int i = left_index; i < right_index; i++) {
 		if (objects.at(i)->getCentroid().getAxisValue(maxAxis) > mid) {
@@ -134,7 +120,6 @@ void BVH::build_recursive(int left_index, int right_index, BVHNode* node) {
 	}
 
 	// Creating node 
-	// -> tentar com o nodes.size() aqui, maybe com +2
 	BVHNode* left_node = new BVHNode();
 	BVHNode* right_node = new BVHNode();
 
@@ -154,19 +139,19 @@ void BVH::build_recursive(int left_index, int right_index, BVHNode* node) {
 
 bool BVH::Traverse(Ray& ray, Object** hit_obj, Vector& hit_point) {
 	float tmp;
-	float tmin = FLT_MAX;  //contains the closest primitive intersection
+	float tmin = FLT_MAX; 
 	bool hit = false;
-
-	// findIntersection da fonte
 
 	BVHNode* currentNode = nodes[0];
 
 	*hit_obj = nullptr;
 
+	// If the ray does not intersect the AABB of the root node return false
 	if (!currentNode->getAABB().intercepts(ray, tmp)) {
 		return false;
 	}
 
+	// Infinite loop to traverse the BVH tree until a leaf node is reached or the stack is empty
 	for (;;) {
 		if (!currentNode->isLeaf()) {
 
@@ -181,6 +166,8 @@ bool BVH::Traverse(Ray& ray, Object** hit_obj, Vector& hit_point) {
 
 			StackItem* item = nullptr;
 
+			// If both children intersect the ray, push the closest child becomes the current node 
+			// and the farthest child is pushed to the stack
 			if (inter_left && inter_right) {
 
 				if (t_left > t_right) {
@@ -190,25 +177,20 @@ bool BVH::Traverse(Ray& ray, Object** hit_obj, Vector& hit_point) {
 				else {
 					currentNode = childLeft;
 					item = new StackItem(childRight, t_right);
-
 				}
 				hit_stack.push(*item);
 				continue;
-
-
 			}
 			else if (inter_left) {
-
 				currentNode = childLeft;
 				continue;
 			}
 			else if (inter_right) {
-
 				currentNode = childRight;
 				continue;
 			}
-
 		}
+		// If the current node is a leaf node, check for intersection with the objects in the leaf node
 		else {
 			int start = currentNode->getIndex(), objs = currentNode->getNObjs();
 			for (int i = start; i < start + objs; i++) {
@@ -218,7 +200,8 @@ bool BVH::Traverse(Ray& ray, Object** hit_obj, Vector& hit_point) {
 				}
 			}
 		}
-
+	
+		// Pop items from stack until it's empty
 		bool end = false;
 		for (;;) {
 			if (hit_stack.empty()) {
@@ -244,16 +227,17 @@ bool BVH::Traverse(Ray& ray, Object** hit_obj, Vector& hit_point) {
 	return true;
 }
 
-bool BVH::Traverse(Ray& ray) {  //shadow ray with length
+bool BVH::Traverse(Ray& ray) {  // Shadow ray with length
 	float tmp;
 
-	double length = ray.direction.length(); //distance between light and intersection point
+	double length = ray.direction.length(); // Distance between light and intersection point
 	ray.direction.normalize();
 
 	BVHNode* currentNode = nodes[0];
 
 	if (!currentNode->getAABB().intercepts(ray, tmp)) return false;
 
+	// Infinite loop to traverse the BVH tree until a leaf node is reached or the stack is empty
 	for (;;) {
 		if (!currentNode->isLeaf()) {
 			float t_right = FLT_MAX, t_left = FLT_MAX;

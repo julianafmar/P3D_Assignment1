@@ -468,7 +468,6 @@ Color getRefraction(Vector hitPoint, Vector normalVec, Vector tangentVec, float 
 	Vector refrRayDir = tangentVec * sin2 - normalVec * cos2;
 	Ray rt(refrHitPoint, refrRayDir); // the refrated ray 
 
-	// Ver a normal, ela pode ser a errada 
 	Color refrColor = rayTracing(rt, depth + 1, ior_2);
 	return refrColor * (1 - kr); 
 }
@@ -480,9 +479,10 @@ Color getReflection(Vector normalVec, float cos, Vector revRayDir, Vector hitPoi
 	reflRayDir.normalize();
 	float reflection = material->GetReflection();
 
+	// Create a new ray for the reflection from the hit point in the reflected direction.
 	Ray reflRay(hitPoint, reflRayDir);
 
-	Color reflColor = rayTracing(reflRay, depth + 1, ior_1);
+	Color reflColor = rayTracing(reflRay, depth + 1, ior_1); // Recursively trace the reflection ray to calculate the reflected color.
 	reflColor = material->GetSpecColor() * reflColor * material->GetReflection();
 	return reflColor;
 }
@@ -490,36 +490,31 @@ Color getReflection(Vector normalVec, float cos, Vector revRayDir, Vector hitPoi
 Color getDiffuse(Ray shadowRay, Material* material, Vector hitRayDir, Vector normalVec, Vector lightDir, Color lightColour, float lightDotProduct) {
 
 	Color color = Color();
-	bool shadow = false;
 	float hitDist;
 
+	// Determine shadow presence using the appropriate acceleration structure
 	if (Accel_Struct == GRID_ACC) {
-		shadow = grid_ptr->Traverse(shadowRay);
+		if(grid_ptr->Traverse(shadowRay)) return color;
 	}
 
 	else if (Accel_Struct == BVH_ACC) {
-		shadow = bvh_ptr->Traverse(shadowRay);
+		if(bvh_ptr->Traverse(shadowRay)) return color;
 	}
 
 	else {
+		// Check every object in the scene for intercepts with the ray
 		for (int j = 0; j < scene->getNumObjects(); j++) {
 			float maxDist = shadowRay.direction.length();
-			if (scene->getObject(j)->intercepts(shadowRay, hitDist) && hitDist < maxDist) {
-				shadow = true;
-				break;
-			}
+			if (scene->getObject(j)->intercepts(shadowRay, hitDist) && hitDist < maxDist) return color;
 		}
 	}
 
-	if (shadow)
-		return color;
+	// Calculate the diffuse component based on material properties and light direction dot product
+	Color diffuseColour = material->GetDiffColor() * material->GetDiffuse() * lightDotProduct;
 
-	Color diffuse_colour = material->GetDiffColor() * material->GetDiffuse() * lightDotProduct;
-
-	
 	float normalDotProd = lightDir * normalVec;
 
-	// Blinn approximation 
+	// Calculate specular highlights using the Blinn-Phong approximation
 	float halfwayProduct = ((lightDir + hitRayDir).normalize()) * normalVec;
 
 	Color specularColor;
@@ -527,17 +522,17 @@ Color getDiffuse(Ray shadowRay, Material* material, Vector hitRayDir, Vector nor
 		specularColor = material->GetSpecColor() * material->GetSpecular() * pow(halfwayProduct, material->GetShine());
 	}
 
-	return color += lightColour * (diffuse_colour + specularColor);
+	return color += lightColour * (diffuseColour + specularColor);
 }
 
 Color rayTracing(Ray ray, int depth, float ior_1) {
 
-	bool useImage = scene->GetSkyBoxFlg(); // check if the background image is enabled
+	bool useImage = scene->GetSkyBoxFlg(); // Check if the background image is enabled
 	Color color = Color();
 
 	float hitDist, shortDist = INFINITY;
 
-	Object* closestObj = nullptr; // the closest object that the ray intercepts
+	Object* closestObj = nullptr; // The closest object that the ray intercepts
 	Vector hitPoint;
 	bool hit = false;
 
@@ -555,7 +550,7 @@ Color rayTracing(Ray ray, int depth, float ior_1) {
 	}
 
 	else {
-		for (int i = 0; i < objects; i++) { // finding the closest object that the ray intersects
+		for (int i = 0; i < objects; i++) { // Finding the closest object that the ray intersects
 			Object* obj = scene->getObject(i);
 
 			if (obj->intercepts(ray, hitDist) && hitDist < shortDist) {
@@ -573,13 +568,13 @@ Color rayTracing(Ray ray, int depth, float ior_1) {
 		return scene->GetBackgroundColor();
 	}
 
-	Vector revRayDir = ray.direction * (-1); // reflected ray direction (90 deg)
+	Vector revRayDir = ray.direction * (-1); // Reflected ray direction (90 deg)
 	Vector normalVec = closestObj->getNormal(hitPoint);
 
 	Material* material = closestObj->GetMaterial();
 	float ior_2 = material->GetRefrIndex();
 
-	// check refraction indexes
+	// Check refraction indexes
 	if (revRayDir * normalVec > 0) {
 		normalVec = normalVec;
 		ior_1 = 1;
@@ -589,14 +584,14 @@ Color rayTracing(Ray ray, int depth, float ior_1) {
 		ior_2 = 1;
 	}
 
-	Vector reflectPoint = hitPoint + normalVec * EPSILON; // offset to avoid inside error
+	Vector reflectPoint = hitPoint + normalVec * EPSILON; // Offset to avoid inside error
 
 	int ligths = scene->getNumLights();
 	for (int i = 0; i < ligths; i++) {
 		Light* light = scene->getLight(i);
 		Vector lightDir;
 
-		lightDir = (light->position - hitPoint); // direction of the hitpoint to each light
+		lightDir = (light->position - hitPoint); // Direction of the hitpoint to each light
 
 
 		float lightDotProduct = (lightDir / lightDir.length()) * normalVec;
@@ -657,6 +652,7 @@ Vector rand_in_unit_circle() {
 
 	return Vector(x, y, 0);
 }
+
 // Render function by primary ray casting from the eye towards the scene's objects
 
 void renderScene()
@@ -677,7 +673,7 @@ void renderScene()
 
 	if (drawModeEnabled) {
 		glClear(GL_COLOR_BUFFER_BIT);
-		scene->GetCamera()->SetEye(Vector(camX, camY, camZ));  //Camera motion
+		scene->GetCamera()->SetEye(Vector(camX, camY, camZ));  // Camera motion
 	}
 
 	bool dof = false;
@@ -689,14 +685,14 @@ void renderScene()
 		{
 			Color color;
 
-			if (dof) { // has depth of field
+			if (dof) { // Has depth of field
 
-				int dofValue; // value to modify the pixel according to antiAliasing
+				int dofValue; // Value to modify the pixel according to antiAliasing
 
 				if (!antiAliasing) { 
 					dofValue = 2;
 
-					// pixel coordinates are set in the middle of the pixel
+					// Pixel coordinates are set in the middle of the pixel
 					pixel.x = x + 0.5f;
 					pixel.y = y + 0.5f;
 				}
@@ -720,19 +716,19 @@ void renderScene()
 				}
 				color = color * (1 / pow(dofValue, 2));
 			}
-			else { // has no depth of field
+			else { // Has no depth of field
 
 				if (!antiAliasing) {
 
 					pixel.x = x + 0.5f;
 					pixel.y = y + 0.5f;
 
-					Ray ray = scene->GetCamera()->PrimaryRay(pixel);   //function from camera.h
+					Ray ray = scene->GetCamera()->PrimaryRay(pixel);   // Function from camera.h
 
 					color = rayTracing(ray, 1, 1.0).clamp();
 
 				}
-				else { // with anti-aliasing
+				else { // With anti-aliasing
 
 					for (int p = 0; p < sqrtN; p++) {
 						for (int q = 0; q < sqrtN; q++) {
